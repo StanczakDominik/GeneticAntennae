@@ -1,4 +1,4 @@
-"""genetic optimization of radio antenna coverage"""
+"""genetic algorithm optimization of radio antenna coverage"""
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,24 +16,23 @@ NY = 100
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
 y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
-R = np.stack((X,Y), axis=0)
+R = np.stack((X, Y), axis=0)
 
 N_ANTENNAE = 3
 np.random.seed(0)
 antenna_r = np.random.random((N_ANTENNAE, 2))
-ANTENNA_RADIUS = 2
 
 def antenna_coverage(r_antenna, r_grid, power=0.1):
     """compute coverage of grid by single antenna
     assumes coverage is power/distance^2
 
-    TODO: vectorise this to cover all antennae in array simultaneously
+    array of distances squared from each antenna
+    uses numpy broadcasting
+    cast (N, 2) - (2, NX, NY) to (N, 2, 1, 1) - (1, 2, NX, NY)
+    both are then broadcasted to (N, 2, NX, NY)
     """
-
-    # array of distances squared from each antenna
-    # uses numpy broadcasting
-    # (N, 2) - (2, NX, NY)
-    distance_squared = ((r_antenna[..., np.newaxis, np.newaxis] - r_grid[np.newaxis, ...])**2).sum(axis=1)
+    distance_squared = ((r_antenna[..., np.newaxis, np.newaxis] -\
+                         r_grid[np.newaxis, ...])**2).sum(axis=1)
 
     # if we want to go for 1/r^2 antenna coverage
     # result = (power*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
@@ -41,19 +40,22 @@ def antenna_coverage(r_antenna, r_grid, power=0.1):
     # result[np.isinf(result)] = 0 # TODO: find better solution
 
     # binary coverage case
-    result = (distance_squared<power**2) # is grid entry covered by any
-    result = result.sum(axis=0) >0        # logical or
+    result = (distance_squared < power**2) # is grid entry covered by any
+    result = result.sum(axis=0) > 0        # logical or
     result = result > 0
 
     return result.astype(float)
 
-def plot(coverage, r):
+def plot(values, antenna_locations):
+    """
+    plot grid values (coverage (weighted optionally) and antenna locations)
+    """
     fig, ax = plt.subplots()
-    x_a, y_a = r.T
+    x_a, y_a = antenna_locations.T
     ax.plot(x_a, y_a, "k*", label="Antennae locations")
 
-    contours = ax.contour(X, Y, coverage, 100, cmap='viridis', label="Coverage")
-    colors = ax.contourf(X, Y, coverage, 100, cmap='viridis') #contourf: contour FILLED
+    contours = ax.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
+    colors = ax.contourf(X, Y, values, 100, cmap='viridis') #contourf: contour FILLED
     fig.colorbar(colors)
 
     ax.set_xlabel("x")
@@ -65,7 +67,7 @@ def plot(coverage, r):
 coverage = antenna_coverage(antenna_r, R)
 
 # population as weights
-DISTANCES = ((R-np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
+DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 population = np.exp(-DISTANCES*10)
 
 

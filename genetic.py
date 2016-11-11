@@ -16,25 +16,35 @@ NY = 100
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
 y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
-R = np.dstack((X,Y)) # shape: (NX, NY, 2)
+R = np.stack((X,Y), axis=0)
 
-
-N_ANTENNAE = 1
-antenna_r = np.zeros((N_ANTENNAE, 2), dtype=float)
+N_ANTENNAE = 3
+np.random.seed(0)
+antenna_r = np.random.random((N_ANTENNAE, 2))
 ANTENNA_RADIUS = 2
 
-def antenna_coverage(r_antenna, X_grid, Y_grid, power=1):
+def antenna_coverage(r_antenna, r_grid, power=0.1):
     """compute coverage of grid by single antenna
     assumes coverage is power/distance^2
 
     TODO: vectorise this to cover all antennae in array simultaneously
     """
-    X_a, Y_a = r_antenna.T #transpose to make array.shape (2, N)
-    distance_squared = (X_a-X_grid)**2 + (Y_a - Y_grid)**2
-    result = power/distance_squared
 
-    # cover case where antenna is located in grid point
-    result[np.isinf(result)] = 0 # TODO: find better solution
+    # array of distances squared from each antenna
+    # uses numpy broadcasting
+    # (N, 2) - (2, NX, NY)
+    distance_squared = ((r_antenna[..., np.newaxis, np.newaxis] - r_grid[np.newaxis, ...])**2).sum(axis=1)
+
+    # if we want to go for 1/r^2 antenna coverage
+    # result = (power*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
+    # # cover case where antenna is located in grid point
+    # result[np.isinf(result)] = 0 # TODO: find better solution
+
+    # binary coverage case
+    result = (distance_squared<power**2) # is grid entry covered by any
+    result = result.sum(axis=0) >0        # logical or
+    result = result > 0
+
     return result
 
 def plot(coverage, r):
@@ -52,8 +62,6 @@ def plot(coverage, r):
 
     return fig
 
-
-r = np.random.random((N_ANTENNAE, 2))
-coverage = antenna_coverage(r, X, Y)
-plot(coverage, r)
+coverage = antenna_coverage(antenna_r, R)
+plot(coverage, antenna_r)
 plt.show()

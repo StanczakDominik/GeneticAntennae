@@ -45,7 +45,7 @@ def antenna_coverage(r_antenna, r_grid, power=0.1):
     result = result.sum(axis=0) >0        # logical or
     result = result > 0
 
-    return result
+    return result.astype(float)
 
 def plot(coverage, r):
     fig, ax = plt.subplots()
@@ -63,5 +63,11 @@ def plot(coverage, r):
     return fig
 
 coverage = antenna_coverage(antenna_r, R)
-plot(coverage, antenna_r)
+
+# population as weights
+DISTANCES = ((R-np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
+population = np.exp(-DISTANCES*10)
+
+
+plot(coverage*population, antenna_r)
 plt.show()

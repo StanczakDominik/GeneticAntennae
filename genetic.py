@@ -50,26 +50,84 @@ def plot(values, antenna_locations):
     """
     plot grid values (coverage (weighted optionally) and antenna locations)
     """
-    fig, ax = plt.subplots()
+    fig, axis = plt.subplots()
     x_a, y_a = antenna_locations.T
-    ax.plot(x_a, y_a, "k*", label="Antennae locations")
+    axis.plot(x_a, y_a, "k*", label="Antennae locations")
 
-    contours = ax.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
-    colors = ax.contourf(X, Y, values, 100, cmap='viridis') #contourf: contour FILLED
+    contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
+    colors = axis.contourf(X, Y, values, 100, cmap='viridis')
     fig.colorbar(colors)
 
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.legend(loc='best')
+    axis.set_xlabel("x")
+    axis.set_ylabel("y")
+    axis.legend(loc='best')
 
     return fig
 
 coverage = antenna_coverage(antenna_r, R)
 
-# population as weights
+plot(coverage, antenna_r)
+plt.show()
+
+# population as weights, for now let's focus on the uniform population case
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 population = np.exp(-DISTANCES*10)
 
-
 plot(coverage*population, antenna_r)
 plt.show()
+
+def utility_function(coverage):
+    """returns total coverage as fraction of grid size
+    for use in the following genetic operators"""
+    return coverage.sum()/NX/NY
+
+def selection():
+    """
+    https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)
+    1. The fitness function is evaluated for each individual, providing fitness
+    values, which are then normalized. Normalization means dividing the fitness
+    value of each individual by the sum of all fitness values, so that the sum
+    of all resulting fitness values equals 1.
+
+    2. The population is sorted by descending fitness values.
+
+    3. Accumulated normalized fitness values are computed (the accumulated
+    fitness value of an individual is the sum of its own fitness value plus the
+    fitness values of all the previous individuals). The accumulated fitness of
+    the last individual should be 1 (otherwise something went wrong in the
+    normalization step).
+
+    4. A random number R between 0 and 1 is chosen.
+
+    5. The selected individual is the first one whose accumulated normalized
+    value is greater than R.
+    """
+
+def crossover():
+    """
+    https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)
+    """
+
+def mutation(r_antenna, gaussian_std = 0.01):
+    """
+    https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
+
+    acts in place!
+
+    podoba mi się pomysł żeby mutacja
+    1. przesuwała wszystkie anteny o jakiś losowy wektor z gaussowskiej
+    dystrybucji
+    2. renormalizowała położenia anten do pudełka (xmin, xmax), (ymin, ymax)
+
+    pytanie - czy wystarczy zrobić okresowe warunki brzegowe (modulo), czy skoki
+    tym spowodowane będą za duże (bo nie mamy okresowości na pokryciu)?
+    w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
+    """
+    r_antenna += np.random.normal(loc=r_antenna, scale=gaussian_std)
+    r_antenna[:, 0] %= XMAX        # does this need xmin somehow?
+    r_antenna[:, 1] %= YMAX        # likewise?
+
+
+def main_loop():
+    """
+    """

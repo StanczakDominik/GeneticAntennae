@@ -34,7 +34,7 @@ def antenna_coverage(r_antenna, r_grid, power=0.1):
     distance_squared = ((r_antenna[..., np.newaxis, np.newaxis] -\
                          r_grid[np.newaxis, ...])**2).sum(axis=1)
 
-    # if we want to go for 1/r^2 antenna coverage
+    # TODO: decide if we want to go for 1/r^2 antenna coverage
     # result = (power*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
     # # cover case where antenna is located in grid point
     # result[np.isinf(result)] = 0 # TODO: find better solution
@@ -74,14 +74,16 @@ DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(a
 population = np.exp(-DISTANCES*10)
 
 plot(coverage*population, antenna_r)
+plt.title("Weighted by population")
 plt.show()
 
 def utility_function(coverage):
     """returns total coverage as fraction of grid size
-    for use in the following genetic operators"""
+    for use in the following genetic operators
+    this way we're optimizing a bounded function (values from 0 to 1)"""
     return coverage.sum()/NX/NY
 
-def selection():
+def selection(r_antennae):
     """
     https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)
     1. The fitness function is evaluated for each individual, providing fitness
@@ -103,9 +105,15 @@ def selection():
     value is greater than R.
     """
 
-def crossover():
+def crossover(r_antennae):
     """
     https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)
+
+    how do we do this?
+    * take average? introduces giant changes
+
+    na razie wiem tyle że bardziej mi się podoba nazwa recombination
+    jest bardziej plazmowa
     """
 
 def mutation(r_antenna, gaussian_std = 0.01):
@@ -114,10 +122,11 @@ def mutation(r_antenna, gaussian_std = 0.01):
 
     acts in place!
 
-    podoba mi się pomysł żeby mutacja
+    podoba mi się pomysł który mają na wiki, żeby mutacja
     1. przesuwała wszystkie anteny o jakiś losowy wektor z gaussowskiej
     dystrybucji
-    2. renormalizowała położenia anten do pudełka (xmin, xmax), (ymin, ymax)
+    2. (konieczność u nas:) renormalizowała położenia anten do pudełka
+    (xmin, xmax), (ymin, ymax)
 
     pytanie - czy wystarczy zrobić okresowe warunki brzegowe (modulo), czy skoki
     tym spowodowane będą za duże (bo nie mamy okresowości na pokryciu)?
@@ -128,6 +137,27 @@ def mutation(r_antenna, gaussian_std = 0.01):
     r_antenna[:, 1] %= YMAX        # likewise?
 
 
-def main_loop():
+def main_loop(N_generations):
     """
+    TODO: czym właściwie jest nasza generacja?
+    * zbiorem N anten (macierz Nx2 floatów)?
+    * chyba to - M zestawów po N anten (macierz MxNx2), i każdy pojedynczy
+    reprezentant to macierz Nx2?
+    * jeśli to drugie to będę pewnie musiał przerobić coverage() żeby to się
+    sensownie wektorowo liczyło
+
+    na razie zróbmy wolno i na forach :)
     """
+
+    # init antenna locations
+    r_antennae = np.random.random((N_ANTENNAE, 2))
+    for n in N_generations: #ew. inny warunek, np. mała różnica kolejnych wartości
+        selection(r_antennae)
+
+        #  losowo: liczba losowa dla każdej anteny oddzielnie?
+        mutation(r_antenna)
+        crossover(r_antennae)
+
+    # jakoś wybrać maksymalny zestaw
+    # printnąć położenia
+    # plotnąć jaki jest wspaniały

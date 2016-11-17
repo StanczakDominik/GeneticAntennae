@@ -140,7 +140,7 @@ selection(r_antennae_population)
 print("After selection")
 print(r_antennae_population)
 
-def crossover(r_antennae_population, probability_crossover = 0.5):
+def crossover_vector(r_antennae_population, probability_crossover = 0.5):
     """
     can't take average here because average is symmetric
     a, b -> c, c
@@ -149,22 +149,6 @@ def crossover(r_antennae_population, probability_crossover = 0.5):
     instead I'm doing
     a, b -> a/3 + 2b/3, b/3 + 2/a3
     and because a, b are vectors in (0,1)^2, it's going to stay in there
-
-    TODO: MAYBE instead, take two populations
-    xy  XY
-    xy  XY
-    xy  XY
-    xy  XY
-    xy  XY
-
-    select a random cutoff and swap:
-    xy  XY
-    xy  XY
-    XY  xy
-    XY  xy
-    XY  xy
-
-    this is asymmetric and awesome
     """
 
     for i in range(0, N_POPULATION, 2):
@@ -176,7 +160,37 @@ def crossover(r_antennae_population, probability_crossover = 0.5):
             r_antennae_population[i] = aprime
             r_antennae_population[i] = bprime
 
-crossover(r_antennae_population)
+def crossover_cutoff(r_antennae_population, probability_crossover = 0.5, tmp_array = temp_array):
+    """
+    -    MAYBE instead, take two populations
+-    xy  XY
+-    xy  XY
+-    xy  XY
+-    xy  XY
+-    xy  XY
+-
+-    select a random cutoff and swap:
+-    xy  XY
+-    xy  XY
+-    XY  xy
+-    XY  xy
+-    XY  xy
+-
+-    this is asymmetric and awesome
+    """
+    tmp_array[...] = r_antennae_population[...]
+    for i in range(0, N_POPULATION, 2):
+        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
+            cutoff = np.random.randint(0, N_ANTENNAE)
+            a = r_antennae_population[i+1]
+            b = r_antennae_population[i]
+            print("Exchanging these two at k = {}".format(cutoff), a, b, sep="\n")
+            tmp_array[i, cutoff:] = a[cutoff:]
+            tmp_array[i+1, cutoff:] = b[cutoff:]
+            print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
+    r_antennae_population[...] = tmp_array[...]
+
+crossover_cutoff(r_antennae_population)
 print("After crossover")
 print(r_antennae_population)
 def mutation(r_antenna, gaussian_std = 0.01):

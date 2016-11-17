@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # grid dimensions
+# DO NOT CHANGE THESE
+# FUCKS UP MATH
 XMIN = 0.
 XMAX = 1.
 YMIN = 0.
@@ -132,23 +134,51 @@ def selection(r_antennae_population, tmp_array = temp_array):
         dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
 
     r_antennae_population[...] = new_r_antennae_population[...]
-
+print("Before selection")
 print(r_antennae_population)
 selection(r_antennae_population)
+print("After selection")
 print(r_antennae_population)
 
-def crossover(r_antennae_population, probability_crossover = 0.1):
+def crossover(r_antennae_population, probability_crossover = 0.5):
     """
-    https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)
+    can't take average here because average is symmetric
+    a, b -> c, c
+    but who can say c is better? and now it fills the population
 
-    how do we do this?
-    * take average? introduces giant changes
+    instead I'm doing
+    a, b -> a/3 + 2b/3, b/3 + 2/a3
+    and because a, b are vectors in (0,1)^2, it's going to stay in there
 
-    na razie wiem tyle że bardziej mi się podoba nazwa recombination
-    jest bardziej plazmowa
+    TODO: MAYBE instead, take two populations
+    xy  XY
+    xy  XY
+    xy  XY
+    xy  XY
+    xy  XY
+
+    select a random cutoff and swap:
+    xy  XY
+    xy  XY
+    XY  xy
+    XY  xy
+    XY  xy
+
+    this is asymmetric and awesome
     """
 
+    for i in range(0, N_POPULATION, 2):
+        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
+            a, b = r_antennae_population[i], r_antennae_population[i+1]
+            print("Exchanging these two", a, b, sep="\n")
+            aprime = a/3 + 2*b/3
+            bprime = b/3 + 2*a/3
+            r_antennae_population[i] = aprime
+            r_antennae_population[i] = bprime
 
+crossover(r_antennae_population)
+print("After crossover")
+print(r_antennae_population)
 def mutation(r_antenna, gaussian_std = 0.01):
     """
     https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)

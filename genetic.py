@@ -193,7 +193,8 @@ def crossover_cutoff(r_antennae_population, probability_crossover = 0.5, tmp_arr
 crossover_cutoff(r_antennae_population)
 print("After crossover")
 print(r_antennae_population)
-def mutation(r_antenna, gaussian_std = 0.01):
+
+def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.4):
     """
     https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
 
@@ -209,10 +210,17 @@ def mutation(r_antenna, gaussian_std = 0.01):
     tym spowodowane będą za duże (bo nie mamy okresowości na pokryciu)?
     w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
     """
-    r_antenna += np.random.normal(loc=r_antenna, scale=gaussian_std)
-    r_antenna[:, 0] %= XMAX        # does this need xmin somehow?
-    r_antenna[:, 1] %= YMAX        # likewise?
+    # don't want to move population P's antenna A's X without moving its Y
+    which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
+    how_much_to_move = np.random.normal(scale=gaussian_std, size=(N_POPULATION, N_ANTENNAE, 2))
+    print(which_to_move)
+    r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
+    r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
+    r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
+mutation(r_antennae_population)
+print("After mutation")
+print(r_antennae_population)
 
 def main_loop(N_generations):
     """

@@ -9,8 +9,8 @@ YMIN = 0.
 YMAX = 1.
 
 # grid resolution
-NX = 100
-NY = 100
+NX = 10
+NY = 10
 
 # prepare 2D grid
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
@@ -18,9 +18,18 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
+N_POPULATION = 4
 N_ANTENNAE = 3
 np.random.seed(0)
-antenna_r = np.random.random((N_ANTENNAE, 2))
+r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
+r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
+r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
+
+def antenna_coverage_population(R_antenna, r_grid, power=0.1):
+    result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
+    for i, population_member in enumerate(R_antenna):
+        result_array[i] = antenna_coverage(population_member, r_grid, power)
+    return result_array
 
 def antenna_coverage(r_antenna, r_grid, power=0.1):
     """compute coverage of grid by single antenna
@@ -44,7 +53,7 @@ def antenna_coverage(r_antenna, r_grid, power=0.1):
     result = result.sum(axis=0) > 0        # logical or
     result = result > 0
 
-    return result.astype(float)
+    return result
 
 def plot(values, antenna_locations):
     """
@@ -58,32 +67,35 @@ def plot(values, antenna_locations):
     colors = axis.contourf(X, Y, values, 100, cmap='viridis')
     fig.colorbar(colors)
 
+
     axis.set_xlabel("x")
     axis.set_ylabel("y")
     axis.legend(loc='best')
 
     return fig
 
-coverage = antenna_coverage(antenna_r, R)
+coverage_population = antenna_coverage_population(r_antennae_population, R)
+# for i in range(N_POPULATION):
+#     plot(coverage_population[i], antenna_r[i])
+#     plt.show()
 
-plot(coverage, antenna_r)
-plt.show()
+# # population as weights, for now let's focus on the uniform population case
+# DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
+# population = np.exp(-DISTANCES*10)
+#
+# plot(coverage*population, antenna_r)
+# plt.title("Weighted by population")
+# plt.show()
 
-# population as weights, for now let's focus on the uniform population case
-DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
-population = np.exp(-DISTANCES*10)
-
-plot(coverage*population, antenna_r)
-plt.title("Weighted by population")
-plt.show()
-
-def utility_function(coverage):
+def utility_function(coverage_population):
     """returns total coverage as fraction of grid size
     for use in the following genetic operators
     this way we're optimizing a bounded function (values from 0 to 1)"""
-    return coverage.sum()/NX/NY
+    return coverage_population.sum(axis=(1,2))/NX/NY
 
-def selection(r_antennae):
+print(utility_function(coverage_population))
+temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
+def selection(r_antennae_population, tmp_array = temp_array):
     """
     https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)
     1. The fitness function is evaluated for each individual, providing fitness
@@ -104,8 +116,25 @@ def selection(r_antennae):
     5. The selected individual is the first one whose accumulated normalized
     value is greater than R.
     """
+    coverage_population = antenna_coverage_population(r_antennae_population, R)
+    utility_function_values = utility_function(coverage_population)
+    utility_function_total = utility_function_values.sum()
+    utility_function_normalized = utility_function_values / utility_function_total
+    dystrybuanta = utility_function_normalized.cumsum()
+    random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
 
-def crossover(r_antennae):
+    new_r_antennae_population = tmp_array
+    for i, x in enumerate(random_x.T):
+        indeks = (x > dystrybuanta).sum()
+        print(indeks)
+        new_r_antennae_population[i] = r_antennae_population[indeks]
+    r_antennae_population[...] = new_r_antennae_population[...]
+
+print(r_antennae_population)
+selection(r_antennae_population)
+print(r_antennae_population)
+
+def crossover(r_antennae_population, probability_crossover = 0.1):
     """
     https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)
 
@@ -115,6 +144,7 @@ def crossover(r_antennae):
     na razie wiem tyle że bardziej mi się podoba nazwa recombination
     jest bardziej plazmowa
     """
+
 
 def mutation(r_antenna, gaussian_std = 0.01):
     """

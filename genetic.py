@@ -20,7 +20,7 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
-N_POPULATION = 4
+N_POPULATION = 20
 N_ANTENNAE = 3
 np.random.seed(0)
 
@@ -174,7 +174,7 @@ def crossover_vector(r_antennae_population, probability_crossover = 0.5):
             r_antennae_population[i] = aprime
             r_antennae_population[i] = bprime
 
-def crossover_cutoff(r_antennae_population, probability_crossover = 0.5, tmp_array = temp_array):
+def crossover_cutoff(r_antennae_population, probability_crossover = 0.1, tmp_array = temp_array):
     """
     -    MAYBE instead, take two populations
 -    xy  XY
@@ -205,7 +205,7 @@ def crossover_cutoff(r_antennae_population, probability_crossover = 0.5, tmp_arr
     r_antennae_population[...] = tmp_array[...]
 
 
-def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.4):
+def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.01):
     """
     https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
 
@@ -244,10 +244,16 @@ def main_loop(N_generations):
 
     # init antenna locations
     r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
+    # cov = antenna_coverage(r_antennae_population[0], R)
+    # plot(cov, r_antennae_population[0])
+    # plt.show()
+
     # r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
     # r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
     for n in range(N_generations): #ew. inny warunek, np. mała różnica kolejnych wartości
-        plot_population(r_antennae_population, n).savefig("{}.png".format(n))
+        fig = plot_population(r_antennae_population, n)
+        fig.savefig("{}.png".format(n))
+        plt.close(fig)
 
         #nonessential
         coverage_population = antenna_coverage_population(r_antennae_population, R)
@@ -272,4 +278,4 @@ def main_loop(N_generations):
     # plotnąć jaki jest wspaniały
 
 if __name__=="__main__":
-    main_loop(5)
+    main_loop(20)

@@ -82,9 +82,10 @@ def plot_population(r_antennae_population, generation_number):
         x_a, y_a = antenna_locations.T
         axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=10)
 
-    # contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
-    # colors = axis.contourf(X, Y, values, 100, cmap='viridis')
-    # fig.colorbar(colors)
+    values = antenna_coverage_population(r_antennae_population, r_grid=R).sum(axis=0)
+    contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
+    colors = axis.contourf(X, Y, values, 100, cmap='viridis')
+    fig.colorbar(colors)
 
     axis.set_title("Generation {}".format(generation_number))
     axis.set_xlabel("x")

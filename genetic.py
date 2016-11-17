@@ -23,9 +23,6 @@ R = np.stack((X, Y), axis=0)
 N_POPULATION = 4
 N_ANTENNAE = 3
 np.random.seed(0)
-r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
-r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
-r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
 
 def antenna_coverage_population(R_antenna, r_grid, power=0.1):
     result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
@@ -76,7 +73,29 @@ def plot(values, antenna_locations):
 
     return fig
 
-coverage_population = antenna_coverage_population(r_antennae_population, R)
+def plot_population(r_antennae_population, generation_number):
+    """
+    plot grid values (coverage (weighted optionally) and antenna locations)
+    """
+    fig, axis = plt.subplots()
+    for i, antenna_locations in enumerate(r_antennae_population):
+        x_a, y_a = antenna_locations.T
+        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=10)
+
+    # contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
+    # colors = axis.contourf(X, Y, values, 100, cmap='viridis')
+    # fig.colorbar(colors)
+
+    axis.set_title("Generation {}".format(generation_number))
+    axis.set_xlabel("x")
+    axis.set_ylabel("y")
+    axis.set_xlim(XMIN, XMAX)
+    axis.set_ylim(YMIN, YMAX)
+    axis.legend(loc='best')
+
+    return fig
+
+
 # for i in range(N_POPULATION):
 #     plot(coverage_population[i], antenna_r[i])
 #     plt.show()
@@ -95,7 +114,6 @@ def utility_function(coverage_population):
     this way we're optimizing a bounded function (values from 0 to 1)"""
     return coverage_population.sum(axis=(1,2))/NX/NY
 
-print(utility_function(coverage_population))
 temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
 def selection(r_antennae_population, tmp_array = temp_array):
     """
@@ -134,11 +152,7 @@ def selection(r_antennae_population, tmp_array = temp_array):
         dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
 
     r_antennae_population[...] = new_r_antennae_population[...]
-print("Before selection")
-print(r_antennae_population)
-selection(r_antennae_population)
-print("After selection")
-print(r_antennae_population)
+
 
 def crossover_vector(r_antennae_population, probability_crossover = 0.5):
     """
@@ -190,9 +204,6 @@ def crossover_cutoff(r_antennae_population, probability_crossover = 0.5, tmp_arr
             print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
     r_antennae_population[...] = tmp_array[...]
 
-crossover_cutoff(r_antennae_population)
-print("After crossover")
-print(r_antennae_population)
 
 def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.4):
     """
@@ -218,9 +229,6 @@ def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.4):
     r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
-mutation(r_antennae_population)
-print("After mutation")
-print(r_antennae_population)
 
 def main_loop(N_generations):
     """
@@ -235,14 +243,33 @@ def main_loop(N_generations):
     """
 
     # init antenna locations
-    r_antennae = np.random.random((N_ANTENNAE, 2))
-    for n in N_generations: #ew. inny warunek, np. mała różnica kolejnych wartości
-        selection(r_antennae)
+    r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
+    # r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
+    # r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
+    for n in range(N_generations): #ew. inny warunek, np. mała różnica kolejnych wartości
+        plot_population(r_antennae_population, n).savefig("{}.png".format(n))
 
-        #  losowo: liczba losowa dla każdej anteny oddzielnie?
-        mutation(r_antenna)
-        crossover(r_antennae)
+        #nonessential
+        coverage_population = antenna_coverage_population(r_antennae_population, R)
+        print(utility_function(coverage_population))
 
+        print("Before selection")
+        print(r_antennae_population)
+        selection(r_antennae_population)
+        print("After selection")
+        print(r_antennae_population)
+
+        crossover_cutoff(r_antennae_population)
+        print("After crossover")
+        print(r_antennae_population)
+
+        mutation(r_antennae_population)
+        print("After mutation")
+        print(r_antennae_population)
+    plot_population(r_antennae_population, N_generations).savefig("final.png")
     # jakoś wybrać maksymalny zestaw
     # printnąć położenia
     # plotnąć jaki jest wspaniały
+
+if __name__=="__main__":
+    main_loop(5)

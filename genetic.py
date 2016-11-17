@@ -124,10 +124,13 @@ def selection(r_antennae_population, tmp_array = temp_array):
     random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
 
     new_r_antennae_population = tmp_array
-    for i, x in enumerate(random_x.T):
-        indeks = (x > dystrybuanta).sum()
-        print(indeks)
-        new_r_antennae_population[i] = r_antennae_population[indeks]
+    # for i, x in enumerate(random_x.T):
+    #     indeks = (x > dystrybuanta).sum()
+    #     print(indeks)
+    #     new_r_antennae_population[i] = r_antennae_population[indeks]
+    new_r_antennae_population[...] = r_antennae_population[(random_x >\
+        dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
+
     r_antennae_population[...] = new_r_antennae_population[...]
 
 print(r_antennae_population)

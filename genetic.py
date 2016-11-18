@@ -11,8 +11,8 @@ YMIN = 0.
 YMAX = 1.
 
 # grid resolution
-NX = 100
-NY = 100
+NX = 200
+NY = 200
 
 # prepare 2D grid
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
@@ -20,10 +20,12 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
-N_POPULATION = 20
+N_POPULATION = 50
 N_GENERATIONS = 20
-N_ANTENNAE = 3
-DEFAULT_POWER = 0.5
+N_ANTENNAE = 10
+# N pi r^2 = 1
+# r = (1/ N pi)**0.5
+DEFAULT_POWER = (np.pi * N_ANTENNAE)**-0.5
 P_CROSSOVER = 0.8
 P_MUTATION = 1e-3
 MUTATION_STD = 0.6
@@ -32,7 +34,7 @@ MUTATION_STD = 0.6
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 WEIGHTS = np.exp(-DISTANCES*10)
 UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
-WEIGHTS = UNIFORM_WEIGHTS
+# WEIGHTS = UNIFORM_WEIGHTS
 
 WEIGHTS_NORM = np.sum(WEIGHTS)
 WEIGHTS /= WEIGHTS
@@ -71,25 +73,6 @@ def antenna_coverage(r_antenna, r_grid, power=DEFAULT_POWER):
 
     return result
 
-def plot(values, antenna_locations):
-    """
-    plot grid values (coverage (weighted optionally) and antenna locations)
-    """
-    fig, axis = plt.subplots()
-    x_a, y_a = antenna_locations.T
-    axis.plot(x_a, y_a, "k*", label="Antennae locations")
-
-    contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
-    colors = axis.contourf(X, Y, values, 100, cmap='viridis')
-    fig.colorbar(colors)
-
-
-    axis.set_xlabel("x")
-    axis.set_ylabel("y")
-    axis.legend(loc='best')
-
-    return fig
-
 def plot_population(r_antennae_population, generation_number):
     """
     plot grid values (coverage (weighted optionally) and antenna locations)
@@ -102,21 +85,53 @@ def plot_population(r_antennae_population, generation_number):
     for i, antenna_locations in enumerate(r_antennae_population):
         x_a, y_a = antenna_locations.T
         marker_size = 10
+        alpha = 0.6
         if i == best_candidate:
             marker_size *= 2
-        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size)
+            alpha = 1
+        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
 
     # utility_function_values = utility_function(weights * coverage_population)
     # import ipdb; ipdb.set_trace()
-    contours = axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
-    colors = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
-    fig.colorbar(colors)
+    axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
+    configurations = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
+    fig.colorbar(configurations)
 
-    axis.set_title("Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
+    axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
         generation_number,
         utility_function_values.mean(),
         utility_function_values.std(),
         utility_function_values.max(),
+        ))
+    axis.set_xlabel("x")
+    axis.set_ylabel("y")
+    axis.set_xlim(XMIN, XMAX)
+    axis.set_ylim(YMIN, YMAX)
+    # axis.legend(loc='best')
+    return fig
+
+def plot_single(r_antennae, generation_number):
+    """
+    plot grid values (coverage (weighted optionally) and antenna locations)
+    """
+    fig, axis = plt.subplots()
+    values = antenna_coverage(r_antennae, r_grid=R)
+    utility_function_value = (WEIGHTS*values).sum()/NX/NY
+
+    x_a, y_a = r_antennae.T
+    marker_size = 20
+    alpha = 1
+    axis.plot(x_a, y_a, "*", ms=marker_size, alpha=alpha)
+
+    # utility_function_values = utility_function(weights * coverage_population)
+    # import ipdb; ipdb.set_trace()
+    axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
+    configurations = axis.contourf(X, Y, values, 100, cmap='viridis', alpha=0.5)
+    fig.colorbar(configurations)
+
+    axis.set_title(r"Generation {}, optimal candidate, f {:.2f}".format(
+        generation_number,
+        utility_function_value,
         ))
     axis.set_xlabel("x")
     axis.set_ylabel("y")
@@ -245,6 +260,12 @@ def main_loop(N_generations):
             print(r_antennae_population)
     print("\rJob's finished!")
     plot_population(r_antennae_population, N_generations).savefig("{}.png".format(N_GENERATIONS))
+    values = antenna_coverage_population(r_antennae_population, r_grid=R)
+    utility_function_values = utility_function(values, WEIGHTS)
+    best_candidate = np.argmax(utility_function_values)
+    r_best = r_antennae_population[best_candidate]
+    print(r_best)
+    plot_single(r_best, N_generations).savefig("{}_max.png".format(N_GENERATIONS))
     # jakoś wybrać maksymalny zestaw
     # printnąć położenia
     # plotnąć jaki jest wspaniały

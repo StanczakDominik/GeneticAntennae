@@ -11,8 +11,8 @@ YMIN = 0.
 YMAX = 1.
 
 # grid resolution
-NX = 10
-NY = 10
+NX = 100
+NY = 100
 
 # prepare 2D grid
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
@@ -21,16 +21,21 @@ X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
 N_POPULATION = 20
+N_GENERATIONS = 200
 N_ANTENNAE = 3
-np.random.seed(0)
+DEFAULT_POWER = 0.5
+P_CROSSOVER = 0.8
+P_MUTATION = 1e-3
+MUTATION_STD = 0.1
+#np.random.seed(0)
 
-def antenna_coverage_population(R_antenna, r_grid, power=0.1):
+def antenna_coverage_population(R_antenna, r_grid, power=DEFAULT_POWER):
     result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
     for i, population_member in enumerate(R_antenna):
         result_array[i] = antenna_coverage(population_member, r_grid, power)
     return result_array
 
-def antenna_coverage(r_antenna, r_grid, power=0.1):
+def antenna_coverage(r_antenna, r_grid, power=DEFAULT_POWER):
     """compute coverage of grid by single antenna
     assumes coverage is power/distance^2
 
@@ -92,7 +97,7 @@ def plot_population(r_antennae_population, generation_number):
     axis.set_ylabel("y")
     axis.set_xlim(XMIN, XMAX)
     axis.set_ylim(YMIN, YMAX)
-    axis.legend(loc='best')
+    # axis.legend(loc='best')
 
     return fig
 
@@ -155,7 +160,7 @@ def selection(r_antennae_population, tmp_array = temp_array):
     r_antennae_population[...] = new_r_antennae_population[...]
 
 
-def crossover_vector(r_antennae_population, probability_crossover = 0.5):
+def crossover_vector(r_antennae_population, probability_crossover = P_CROSSOVER):
     """
     can't take average here because average is symmetric
     a, b -> c, c
@@ -175,7 +180,7 @@ def crossover_vector(r_antennae_population, probability_crossover = 0.5):
             r_antennae_population[i] = aprime
             r_antennae_population[i] = bprime
 
-def crossover_cutoff(r_antennae_population, probability_crossover = 0.1, tmp_array = temp_array):
+def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
     """
     -    MAYBE instead, take two populations
 -    xy  XY
@@ -206,7 +211,7 @@ def crossover_cutoff(r_antennae_population, probability_crossover = 0.1, tmp_arr
     r_antennae_population[...] = tmp_array[...]
 
 
-def mutation(r_antennae_population, gaussian_std = 0.01, p_mutation=0.01):
+def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MUTATION):
     """
     https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
 
@@ -273,10 +278,10 @@ def main_loop(N_generations):
         mutation(r_antennae_population)
         print("After mutation")
         print(r_antennae_population)
-    plot_population(r_antennae_population, N_generations).savefig("final.png")
+    plot_population(r_antennae_population, N_generations).savefig("{}.png".format(N_GENERATIONS))
     # jakoś wybrać maksymalny zestaw
     # printnąć położenia
     # plotnąć jaki jest wspaniały
 
 if __name__=="__main__":
-    main_loop(20)
+    main_loop(N_GENERATIONS)

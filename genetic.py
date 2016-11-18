@@ -21,13 +21,22 @@ X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
 N_POPULATION = 20
-N_GENERATIONS = 200
+N_GENERATIONS = 20
 N_ANTENNAE = 3
 DEFAULT_POWER = 0.5
 P_CROSSOVER = 0.8
 P_MUTATION = 1e-3
-MUTATION_STD = 0.1
-#np.random.seed(0)
+MUTATION_STD = 0.6
+
+# # population as weights, for now let's focus on the uniform population case
+DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
+WEIGHTS = np.exp(-DISTANCES*10)
+# UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
+# WEIGHTS = UNIFORM_WEIGHTS
+
+DEBUG_MESSAGES = False
+
+np.random.seed(0)
 
 def antenna_coverage_population(R_antenna, r_grid, power=DEFAULT_POWER):
     result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
@@ -88,7 +97,8 @@ def plot_population(r_antennae_population, generation_number):
         axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=10)
 
     values = antenna_coverage_population(r_antennae_population, r_grid=R).sum(axis=0)
-    contours = axis.contour(X, Y, values, 100, cmap='viridis', label="Coverage")
+    import ipdb; ipdb.set_trace()
+    contours = axis.contour(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
     colors = axis.contourf(X, Y, values, 100, cmap='viridis')
     fig.colorbar(colors)
 
@@ -102,46 +112,15 @@ def plot_population(r_antennae_population, generation_number):
     return fig
 
 
-# for i in range(N_POPULATION):
-#     plot(coverage_population[i], antenna_r[i])
-#     plt.show()
 
-# # population as weights, for now let's focus on the uniform population case
-# DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
-# population = np.exp(-DISTANCES*10)
-#
-# plot(coverage*population, antenna_r)
-# plt.title("Weighted by population")
-# plt.show()
-
-def utility_function(coverage_population):
+def utility_function(coverage_population, weights = WEIGHTS):
     """returns total coverage as fraction of grid size
     for use in the following genetic operators
     this way we're optimizing a bounded function (values from 0 to 1)"""
-    return coverage_population.sum(axis=(1,2))/NX/NY
+    return (weights*coverage_population).sum(axis=(1,2))/NX/NY
 
 temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
 def selection(r_antennae_population, tmp_array = temp_array):
-    """
-    https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)
-    1. The fitness function is evaluated for each individual, providing fitness
-    values, which are then normalized. Normalization means dividing the fitness
-    value of each individual by the sum of all fitness values, so that the sum
-    of all resulting fitness values equals 1.
-
-    2. The population is sorted by descending fitness values.
-
-    3. Accumulated normalized fitness values are computed (the accumulated
-    fitness value of an individual is the sum of its own fitness value plus the
-    fitness values of all the previous individuals). The accumulated fitness of
-    the last individual should be 1 (otherwise something went wrong in the
-    normalization step).
-
-    4. A random number R between 0 and 1 is chosen.
-
-    5. The selected individual is the first one whose accumulated normalized
-    value is greater than R.
-    """
     coverage_population = antenna_coverage_population(r_antennae_population, R)
     utility_function_values = utility_function(coverage_population)
     utility_function_total = utility_function_values.sum()
@@ -174,7 +153,8 @@ def crossover_vector(r_antennae_population, probability_crossover = P_CROSSOVER)
     for i in range(0, N_POPULATION, 2):
         if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
             a, b = r_antennae_population[i], r_antennae_population[i+1]
-            print("Exchanging these two", a, b, sep="\n")
+            if DEBUG_MESSAGES:
+                print("Exchanging these two", a, b, sep="\n")
             aprime = a/3 + 2*b/3
             bprime = b/3 + 2*a/3
             r_antennae_population[i] = aprime
@@ -204,10 +184,12 @@ def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER,
             cutoff = np.random.randint(0, N_ANTENNAE)
             a = r_antennae_population[i+1]
             b = r_antennae_population[i]
-            print("Exchanging these two at k = {}".format(cutoff), a, b, sep="\n")
+            if DEBUG_MESSAGES:
+                print("Exchanging these two at k = {}".format(cutoff), a, b, sep="\n")
             tmp_array[i, cutoff:] = a[cutoff:]
             tmp_array[i+1, cutoff:] = b[cutoff:]
-            print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
+            if DEBUG_MESSAGES:
+                print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
     r_antennae_population[...] = tmp_array[...]
 
 
@@ -230,7 +212,8 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     # don't want to move population P's antenna A's X without moving its Y
     which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
     how_much_to_move = np.random.normal(scale=gaussian_std, size=(N_POPULATION, N_ANTENNAE, 2))
-    print(which_to_move)
+    if DEBUG_MESSAGES:
+        print(which_to_move)
     r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
     r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
@@ -253,31 +236,38 @@ def main_loop(N_generations):
     # cov = antenna_coverage(r_antennae_population[0], R)
     # plot(cov, r_antennae_population[0])
     # plt.show()
-
+    print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0))
     # r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
     # r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
     for n in range(N_generations): #ew. inny warunek, np. mała różnica kolejnych wartości
+        print("\rGeneration {}/{}, {:.0f}% done".format(n, N_generations, n/N_generations*100),end='')
         fig = plot_population(r_antennae_population, n)
         fig.savefig("{}.png".format(n))
         plt.close(fig)
 
         #nonessential
         coverage_population = antenna_coverage_population(r_antennae_population, R)
-        print(utility_function(coverage_population))
+        if DEBUG_MESSAGES:
+            print(utility_function(coverage_population))
 
-        print("Before selection")
-        print(r_antennae_population)
+        if DEBUG_MESSAGES:
+            print(r_antennae_population)
+            print("Before selection")
         selection(r_antennae_population)
-        print("After selection")
-        print(r_antennae_population)
+        if DEBUG_MESSAGES:
+            print("After selection")
+            print(r_antennae_population)
 
         crossover_cutoff(r_antennae_population)
-        print("After crossover")
-        print(r_antennae_population)
+        if DEBUG_MESSAGES:
+            print("After crossover")
+            print(r_antennae_population)
 
         mutation(r_antennae_population)
-        print("After mutation")
-        print(r_antennae_population)
+        if DEBUG_MESSAGES:
+            print("After mutation")
+            print(r_antennae_population)
+    print("Job's finished!")
     plot_population(r_antennae_population, N_generations).savefig("{}.png".format(N_GENERATIONS))
     # jakoś wybrać maksymalny zestaw
     # printnąć położenia

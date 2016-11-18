@@ -31,8 +31,11 @@ MUTATION_STD = 0.6
 # # population as weights, for now let's focus on the uniform population case
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 WEIGHTS = np.exp(-DISTANCES*10)
-# UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
-# WEIGHTS = UNIFORM_WEIGHTS
+UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
+WEIGHTS = UNIFORM_WEIGHTS
+
+WEIGHTS_NORM = np.sum(WEIGHTS)
+WEIGHTS /= WEIGHTS
 
 DEBUG_MESSAGES = False
 
@@ -92,17 +95,29 @@ def plot_population(r_antennae_population, generation_number):
     plot grid values (coverage (weighted optionally) and antenna locations)
     """
     fig, axis = plt.subplots()
+    values = antenna_coverage_population(r_antennae_population, r_grid=R)
+    utility_function_values = utility_function(values, WEIGHTS)
+    best_candidate = np.argmax(utility_function_values)
+
     for i, antenna_locations in enumerate(r_antennae_population):
         x_a, y_a = antenna_locations.T
-        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=10)
+        marker_size = 10
+        if i == best_candidate:
+            marker_size *= 2
+        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size)
 
-    values = antenna_coverage_population(r_antennae_population, r_grid=R).sum(axis=0)
-    import ipdb; ipdb.set_trace()
-    contours = axis.contour(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
-    colors = axis.contourf(X, Y, values, 100, cmap='viridis')
+    # utility_function_values = utility_function(weights * coverage_population)
+    # import ipdb; ipdb.set_trace()
+    contours = axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
+    colors = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
     fig.colorbar(colors)
 
-    axis.set_title("Generation {}".format(generation_number))
+    axis.set_title("Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
+        generation_number,
+        utility_function_values.mean(),
+        utility_function_values.std(),
+        utility_function_values.max(),
+        ))
     axis.set_xlabel("x")
     axis.set_ylabel("y")
     axis.set_xlim(XMIN, XMAX)
@@ -111,18 +126,16 @@ def plot_population(r_antennae_population, generation_number):
 
     return fig
 
-
-
 def utility_function(coverage_population, weights = WEIGHTS):
     """returns total coverage as fraction of grid size
     for use in the following genetic operators
     this way we're optimizing a bounded function (values from 0 to 1)"""
-    return (weights*coverage_population).sum(axis=(1,2))/NX/NY
+    return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
 
 temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
-def selection(r_antennae_population, tmp_array = temp_array):
+def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
-    utility_function_values = utility_function(coverage_population)
+    utility_function_values = utility_function(weights * coverage_population)
     utility_function_total = utility_function_values.sum()
     utility_function_normalized = utility_function_values / utility_function_total
     dystrybuanta = utility_function_normalized.cumsum()
@@ -139,45 +152,8 @@ def selection(r_antennae_population, tmp_array = temp_array):
     r_antennae_population[...] = new_r_antennae_population[...]
 
 
-def crossover_vector(r_antennae_population, probability_crossover = P_CROSSOVER):
-    """
-    can't take average here because average is symmetric
-    a, b -> c, c
-    but who can say c is better? and now it fills the population
-
-    instead I'm doing
-    a, b -> a/3 + 2b/3, b/3 + 2/a3
-    and because a, b are vectors in (0,1)^2, it's going to stay in there
-    """
-
-    for i in range(0, N_POPULATION, 2):
-        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
-            a, b = r_antennae_population[i], r_antennae_population[i+1]
-            if DEBUG_MESSAGES:
-                print("Exchanging these two", a, b, sep="\n")
-            aprime = a/3 + 2*b/3
-            bprime = b/3 + 2*a/3
-            r_antennae_population[i] = aprime
-            r_antennae_population[i] = bprime
 
 def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
-    """
-    -    MAYBE instead, take two populations
--    xy  XY
--    xy  XY
--    xy  XY
--    xy  XY
--    xy  XY
--
--    select a random cutoff and swap:
--    xy  XY
--    xy  XY
--    XY  xy
--    XY  xy
--    XY  xy
--
--    this is asymmetric and awesome
-    """
     tmp_array[...] = r_antennae_population[...]
     for i in range(0, N_POPULATION, 2):
         if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
@@ -236,7 +212,7 @@ def main_loop(N_generations):
     # cov = antenna_coverage(r_antennae_population[0], R)
     # plot(cov, r_antennae_population[0])
     # plt.show()
-    print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0))
+    print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0),end='')
     # r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
     # r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
     for n in range(N_generations): #ew. inny warunek, np. mała różnica kolejnych wartości
@@ -267,7 +243,7 @@ def main_loop(N_generations):
         if DEBUG_MESSAGES:
             print("After mutation")
             print(r_antennae_population)
-    print("Job's finished!")
+    print("\rJob's finished!")
     plot_population(r_antennae_population, N_generations).savefig("{}.png".format(N_GENERATIONS))
     # jakoś wybrać maksymalny zestaw
     # printnąć położenia

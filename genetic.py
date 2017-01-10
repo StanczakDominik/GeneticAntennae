@@ -24,6 +24,7 @@ N_POPULATION = 50
 N_GENERATIONS = 20
 N_ANTENNAE = 10
 # N pi r^2 = 1
+
 # r = (1/ N pi)**0.5
 DEFAULT_POWER = (np.pi * N_ANTENNAE)**-0.5
 P_CROSSOVER = 0.8
@@ -34,11 +35,10 @@ MUTATION_STD = 0.6
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 WEIGHTS = np.exp(-DISTANCES*10)
 UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
-# WEIGHTS = UNIFORM_WEIGHTS
+WEIGHTS = UNIFORM_WEIGHTS
 
 WEIGHTS_NORM = np.sum(WEIGHTS)
-WEIGHTS /= WEIGHTS
-
+WEIGHTS /= WEIGHTS_NORM
 DEBUG_MESSAGES = False
 
 np.random.seed(0)
@@ -176,7 +176,9 @@ def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER,
             a = r_antennae_population[i+1]
             b = r_antennae_population[i]
             if DEBUG_MESSAGES:
-                print("Exchanging these two at k = {}".format(cutoff), a, b, sep="\n")
+                print("Exchanging these two at k = {}".format(cutoff))
+                print(a)
+                print(b)
             tmp_array[i, cutoff:] = a[cutoff:]
             tmp_array[i+1, cutoff:] = b[cutoff:]
             if DEBUG_MESSAGES:
@@ -259,7 +261,7 @@ def main_loop(N_generations):
             print("After mutation")
             print(r_antennae_population)
     print("\rJob's finished!")
-    plot_population(r_antennae_population, N_generations).savefig("{}.png".format(N_GENERATIONS))
+    plot_population(r_antennae_population, N_generations).savefig("{:02d}.png".format(N_GENERATIONS))
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
     utility_function_values = utility_function(values, WEIGHTS)
     best_candidate = np.argmax(utility_function_values)

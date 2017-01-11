@@ -27,9 +27,9 @@ N_ANTENNAE = 4
 
 # r = (1/ N pi)**0.5
 DEFAULT_POWER = (np.pi * N_ANTENNAE)**-0.5
-P_CROSSOVER = 0.8
+P_CROSSOVER = 0.2
 P_MUTATION = 1e-3
-MUTATION_STD = 0.6
+MUTATION_STD = 0.1
 
 # # population as weights, for now let's focus on the uniform population case
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
@@ -39,20 +39,21 @@ WEIGHTS = UNIFORM_WEIGHTS
 
 WEIGHTS_NORM = np.sum(WEIGHTS)
 WEIGHTS /= WEIGHTS_NORM
+
 DEBUG_MESSAGES = False
-PLOT_AT_RUNTIME = False
+PLOT_AT_RUNTIME = True
 
-np.random.seed(0)
+# np.random.seed(0)
 
-def antenna_coverage_population(R_antenna, r_grid, power=DEFAULT_POWER):
+def antenna_coverage_population(R_antenna, r_grid, zasieg=DEFAULT_POWER):
     result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
     for i, population_member in enumerate(R_antenna):
-        result_array[i] = antenna_coverage(population_member, r_grid, power)
+        result_array[i] = antenna_coverage(population_member, r_grid, zasieg)
     return result_array
 
-def antenna_coverage(r_antenna, r_grid, power=DEFAULT_POWER):
+def antenna_coverage(r_antenna, r_grid, zasieg=DEFAULT_POWER):
     """compute coverage of grid by single antenna
-    assumes coverage is power/distance^2
+    assumes coverage is zasieg/distance^2
 
     array of distances squared from each antenna
     uses numpy broadcasting
@@ -63,14 +64,16 @@ def antenna_coverage(r_antenna, r_grid, power=DEFAULT_POWER):
                          r_grid[np.newaxis, ...])**2).sum(axis=1)
 
     # TODO: decide if we want to go for 1/r^2 antenna coverage
-    # result = (power*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
+    # result = (zasieg*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
     # # cover case where antenna is located in grid point
     # result[np.isinf(result)] = 0 # TODO: find better solution
 
     # binary coverage case
-    result = (distance_squared < power**2) # is grid entry covered by any
+    result = (distance_squared < zasieg**2) # is grid entry covered by any
     result = result.sum(axis=0) > 0        # logical or
     result = result > 0
+
+    # TODO: ujemne wagi przez maksymalną możliwą
 
     return result
 
@@ -164,7 +167,7 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
         dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
 
     r_antennae_population[...] = new_r_antennae_population[...]
-    return utility_function_normalized.max(), utility_function_normalized.mean()
+    return utility_function_values.max(), utility_function_values.mean()
 
 
 
@@ -203,11 +206,16 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
     """
     # don't want to move population P's antenna A's X without moving its Y
-    which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
-    how_much_to_move = np.random.normal(scale=gaussian_std, size=(N_POPULATION, N_ANTENNAE, 2))
+    # which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
+    which_to_move = np.ones((N_POPULATION, N_ANTENNAE))
+    how_much_to_move = np.random.normal(scale=gaussian_std,
+                                        size=(N_POPULATION, N_ANTENNAE, 2))
     if DEBUG_MESSAGES:
         print(which_to_move)
     r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
+
+    # TODO: zamienić okresowe warunki brzegowe na wymuszanie 0 w ujemnych fitnessach
+    # TODO: bądź negatywne premiowanie jeśli kółka się nie spełniają
     r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
@@ -290,7 +298,7 @@ def main_loop(N_generations):
     np.savetxt("maxfit.dat", max_fitness_history)
     print(mean_fitness_history)
     print(max_fitness_history)
-    plot_fitness(mean_fitness_history, max_fitness_history)
+    # plot_fitness(mean_fitness_history, max_fitness_history)
 if __name__=="__main__":
     main_loop(N_GENERATIONS)
     # plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

@@ -148,6 +148,7 @@ def utility_function(coverage_population, weights = WEIGHTS):
     return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
 
 temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
+
 def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
     utility_function_values = utility_function(weights * coverage_population)
@@ -165,6 +166,7 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
         dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
 
     r_antennae_population[...] = new_r_antennae_population[...]
+    return utility_function_normalized.max(), utility_function_normalized.mean()
 
 
 
@@ -224,15 +226,13 @@ def main_loop(N_generations):
     na razie zróbmy wolno i na forach :)
     """
 
-    # init antenna locations
     r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
-    # cov = antenna_coverage(r_antennae_population[0], R)
-    # plot(cov, r_antennae_population[0])
-    # plt.show()
+
     print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0),end='')
-    # r_antennae_population[:, :, 0] = (XMAX - XMIN)*r_antennae_population[:,:,0] + XMIN
-    # r_antennae_population[:, :, 1] = (YMAX - YMIN)*r_antennae_population[:,:,1] + YMIN
-    for n in range(N_generations): #ew. inny warunek, np. mała różnica kolejnych wartości
+
+    max_fitness_history = np.zeros(N_generations)
+    mean_fitness_history = np.zeros(N_generations)
+    for n in range(N_generations): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
         print("\rGeneration {}/{}, {:.0f}% done".format(n, N_generations, n/N_generations*100),end='')
         fig = plot_population(r_antennae_population, n)
         fig.savefig("{}.png".format(n))
@@ -246,7 +246,9 @@ def main_loop(N_generations):
         if DEBUG_MESSAGES:
             print(r_antennae_population)
             print("Before selection")
-        selection(r_antennae_population)
+        max_fit, mean_fit = selection(r_antennae_population)
+        max_fitness_history[n] = max_fit
+        mean_fitness_history[n] = mean_fit
         if DEBUG_MESSAGES:
             print("After selection")
             print(r_antennae_population)
@@ -262,15 +264,24 @@ def main_loop(N_generations):
             print(r_antennae_population)
     print("\rJob's finished!")
     plot_population(r_antennae_population, N_generations).savefig("{:02d}.png".format(N_GENERATIONS))
+    plt.close()
+
+    #znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
     utility_function_values = utility_function(values, WEIGHTS)
     best_candidate = np.argmax(utility_function_values)
     r_best = r_antennae_population[best_candidate]
     print(r_best)
     plot_single(r_best, N_generations).savefig("{}_max.png".format(N_GENERATIONS))
-    # jakoś wybrać maksymalny zestaw
-    # printnąć położenia
-    # plotnąć jaki jest wspaniały
+    plt.close()
 
+    plt.plot(mean_fitness_history, "o-", label="Average fitness")
+    plt.plot(max_fitness_history, "o-", label="Mean fitness")
+    plt.xlabel("Generation #")
+    plt.ylabel("Fitness")
+    plt.ylim(0,1)
+    plt.legend()
+    plt.grid()
+    plt.show()
 if __name__=="__main__":
     main_loop(N_GENERATIONS)

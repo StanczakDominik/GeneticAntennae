@@ -11,8 +11,8 @@ YMIN = 0.
 YMAX = 1.
 
 # grid resolution
-NX = 200
-NY = 200
+NX = 50
+NY = 50
 
 # prepare 2D grid
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
@@ -22,7 +22,7 @@ R = np.stack((X, Y), axis=0)
 
 N_POPULATION = 50
 N_GENERATIONS = 20
-N_ANTENNAE = 10
+N_ANTENNAE = 4
 # N pi r^2 = 1
 
 # r = (1/ N pi)**0.5
@@ -35,11 +35,12 @@ MUTATION_STD = 0.6
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 WEIGHTS = np.exp(-DISTANCES*10)
 UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
-WEIGHTS = UNIFORM_WEIGHTS
+# WEIGHTS = UNIFORM_WEIGHTS
 
-WEIGHTS_NORM = np.sum(WEIGHTS)
-WEIGHTS /= WEIGHTS_NORM
+# WEIGHTS_NORM = np.sum(WEIGHTS)
+# WEIGHTS /= WEIGHTS_NORM
 DEBUG_MESSAGES = False
+PLOT_AT_RUNTIME = False
 
 np.random.seed(0)
 
@@ -123,8 +124,6 @@ def plot_single(r_antennae, generation_number):
     alpha = 1
     axis.plot(x_a, y_a, "*", ms=marker_size, alpha=alpha)
 
-    # utility_function_values = utility_function(weights * coverage_population)
-    # import ipdb; ipdb.set_trace()
     axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
     configurations = axis.contourf(X, Y, values, 100, cmap='viridis', alpha=0.5)
     fig.colorbar(configurations)
@@ -213,6 +212,15 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
+def plot_fitness(mean_fitness_history, max_fitness_history):
+    plt.plot(mean_fitness_history, "o-", label="Average fitness")
+    plt.plot(max_fitness_history, "o-", label="Max fitness")
+    plt.xlabel("Generation #")
+    plt.ylabel("Fitness")
+    plt.ylim(0,1)
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 def main_loop(N_generations):
     """
@@ -234,9 +242,10 @@ def main_loop(N_generations):
     mean_fitness_history = np.zeros(N_generations)
     for n in range(N_generations): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
         print("\rGeneration {}/{}, {:.0f}% done".format(n, N_generations, n/N_generations*100),end='')
-        fig = plot_population(r_antennae_population, n)
-        fig.savefig("{}.png".format(n))
-        plt.close(fig)
+        if PLOT_AT_RUNTIME:
+            fig = plot_population(r_antennae_population, n)
+            fig.savefig("{}.png".format(n))
+            plt.close(fig)
 
         #nonessential
         coverage_population = antenna_coverage_population(r_antennae_population, R)
@@ -263,8 +272,10 @@ def main_loop(N_generations):
             print("After mutation")
             print(r_antennae_population)
     print("\rJob's finished!")
-    plot_population(r_antennae_population, N_generations).savefig("{:02d}.png".format(N_GENERATIONS))
-    plt.close()
+    if PLOT_AT_RUNTIME:
+        fig = plot_population(r_antennae_population, N_generations)
+        fig.savefig("{:02d}.png".format(N_GENERATIONS))
+        plt.close(fig)
 
     #znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
@@ -272,16 +283,13 @@ def main_loop(N_generations):
     best_candidate = np.argmax(utility_function_values)
     r_best = r_antennae_population[best_candidate]
     print(r_best)
-    plot_single(r_best, N_generations).savefig("{}_max.png".format(N_GENERATIONS))
-    plt.close()
+    fig = plot_single(r_best, N_generations)
+    fig.savefig("{}_max.png".format(N_GENERATIONS))
+    plt.close('all')
 
-    plt.plot(mean_fitness_history, "o-", label="Average fitness")
-    plt.plot(max_fitness_history, "o-", label="Mean fitness")
-    plt.xlabel("Generation #")
-    plt.ylabel("Fitness")
-    plt.ylim(0,1)
-    plt.legend()
-    plt.grid()
-    plt.show()
+    np.savetxt("meanfit.dat", mean_fitness_history)
+    np.savetxt("maxfit.dat", max_fitness_history)
+    plot_fitness(mean_fitness_history, max_fitness_history)
 if __name__=="__main__":
     main_loop(N_GENERATIONS)
+    plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

@@ -35,10 +35,10 @@ MUTATION_STD = 0.6
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
 WEIGHTS = np.exp(-DISTANCES*10)
 UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
-# WEIGHTS = UNIFORM_WEIGHTS
+WEIGHTS = UNIFORM_WEIGHTS
 
-# WEIGHTS_NORM = np.sum(WEIGHTS)
-# WEIGHTS /= WEIGHTS_NORM
+WEIGHTS_NORM = np.sum(WEIGHTS)
+WEIGHTS /= WEIGHTS_NORM
 DEBUG_MESSAGES = False
 PLOT_AT_RUNTIME = False
 
@@ -92,8 +92,6 @@ def plot_population(r_antennae_population, generation_number):
             alpha = 1
         axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
 
-    # utility_function_values = utility_function(weights * coverage_population)
-    # import ipdb; ipdb.set_trace()
     axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
     configurations = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
     fig.colorbar(configurations)
@@ -153,6 +151,7 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     utility_function_values = utility_function(weights * coverage_population)
     utility_function_total = utility_function_values.sum()
     utility_function_normalized = utility_function_values / utility_function_total
+    # print(utility_function_values)
     dystrybuanta = utility_function_normalized.cumsum()
     random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
 
@@ -289,7 +288,9 @@ def main_loop(N_generations):
 
     np.savetxt("meanfit.dat", mean_fitness_history)
     np.savetxt("maxfit.dat", max_fitness_history)
+    print(mean_fitness_history)
+    print(max_fitness_history)
     plot_fitness(mean_fitness_history, max_fitness_history)
 if __name__=="__main__":
     main_loop(N_GENERATIONS)
-    plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))
+    # plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

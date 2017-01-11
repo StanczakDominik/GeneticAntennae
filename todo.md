@@ -1,3 +1,4 @@
+### Do zrobienia
 * ujemne premiowanie za naświetlanie poza obszarem
   * wagi
 * mapa Polski?
@@ -7,8 +8,11 @@
 * strategia L5 czy jakkolwiek się nazywała
   * opcjonalnie - simulated annealing
 * scipy.spatial.distance_matrix
-* plot jakości
+* jakieś opracowanko
 
-* odrzucone?
-  * zastosować drzewko do znajdywania punktów zamiast liczyć wszystkie odległości
-    * nadałoby się do znalezienia najbliższych sąsiadów danej anteny
+### Zrobione
+* plot jakości od czasu
+
+### Odrzucone
+* zastosować drzewko do znajdywania punktów zamiast liczyć wszystkie odległości
+  * nadałoby się do znalezienia najbliższych sąsiadów danej anteny, ale nie dla wszystkich

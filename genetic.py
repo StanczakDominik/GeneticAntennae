@@ -20,15 +20,15 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
-NPOPULATION = 20
-N_GENERATIONS = 10
-N_ANTENNAE = 4
+NPOPULATION = 4
+NGENERATIONS = 2
+NANTENNAE = 5
 # N pi r^2 = 1
 
 # r = (1/ N pi)**0.5
-DEFAULT_POWER = (np.pi * N_ANTENNAE)**-0.5
-P_CROSSOVER = 0.2
-P_MUTATION = 1e-3
+DEFAULT_POWER = (np.pi * NANTENNAE)**-0.5
+P_CROSSOVER = 1e-3
+P_MUTATION = 0
 MUTATION_STD = 0.01
 
 # # population as weights, for now let's focus on the uniform population case
@@ -41,9 +41,10 @@ WEIGHTS_NORM = np.sum(WEIGHTS)
 # WEIGHTS /= WEIGHTS_NORM
 
 DEBUG_MESSAGES = True
-PLOT_AT_RUNTIME = False
-SAVE_AT_RUNTIME = True
-# np.random.seed(0)
+PLOT_AT_RUNTIME = True
+SAVE_AT_RUNTIME = False
+np.random.seed(0)
+
 #=======CALCULATIONS======
 def antenna_coverage_population(R_antenna, r_grid, zasieg=DEFAULT_POWER):
     result_array = np.empty((NPOPULATION, NX, NY), dtype=bool)
@@ -52,7 +53,8 @@ def antenna_coverage_population(R_antenna, r_grid, zasieg=DEFAULT_POWER):
     return result_array
 
 def antenna_coverage(r_antenna, r_grid, zasieg=DEFAULT_POWER):
-    """compute coverage of grid by single antenna
+    """
+    compute coverage of grid by single antenna
     assumes coverage is zasieg/distance^2
 
     array of distances squared from each antenna
@@ -83,14 +85,13 @@ def utility_function(coverage_population, weights = WEIGHTS):
     this way we're optimizing a bounded function (values from 0 to 1)"""
     return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
 
-temp_array = np.empty((NPOPULATION, N_ANTENNAE, 2))
+temp_array = np.empty((NPOPULATION, NANTENNAE, 2))
 
 def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
     utility_function_values = utility_function(coverage_population, WEIGHTS)
     utility_function_total = utility_function_values.sum()
     utility_function_normalized = utility_function_values / utility_function_total
-    # print(utility_function_values)
     dystrybuanta = utility_function_normalized.cumsum()
     random_x = np.random.random(NPOPULATION).reshape(1, NPOPULATION)
 
@@ -99,17 +100,18 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     #     indeks = (x > dystrybuanta).sum()
     #     print(indeks)
     #     new_r_antennae_population[i] = r_antennae_population[indeks]
-    new_r_antennae_population[...] = r_antennae_population[(random_x >\
-        dystrybuanta.reshape(NPOPULATION, 1)).sum(axis=0)]
+    selected_targets = (random_x > dystrybuanta.reshape(NPOPULATION, 1)).sum(axis=0)
+    print(selected_targets, utility_function_normalized, sep='\n')
+    new_r_antennae_population[...] = r_antennae_population[selected_targets]
 
     r_antennae_population[...] = new_r_antennae_population[...]
-    return utility_function_values.max(), utility_function_values.mean()
+    return utility_function_values.max(), utility_function_values.mean(), utility_function_values.std()
 
 def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
     tmp_array[...] = r_antennae_population[...]
     for i in range(0, NPOPULATION, 2):
         if i + 1 < NPOPULATION and np.random.random() < probability_crossover:
-            cutoff = np.random.randint(0, N_ANTENNAE)
+            cutoff = np.random.randint(0, NANTENNAE)
             a = r_antennae_population[i+1]
             b = r_antennae_population[i]
             if DEBUG_MESSAGES:
@@ -139,10 +141,10 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
     """
     # don't want to move population P's antenna A's X without moving its Y
-    # which_to_move = (np.random.random((NPOPULATION, N_ANTENNAE)) < p_mutation)
-    which_to_move = np.ones((NPOPULATION, N_ANTENNAE))
+    # which_to_move = (np.random.random((NPOPULATION, NANTENNAE)) < p_mutation)
+    which_to_move = np.ones((NPOPULATION, NANTENNAE))
     how_much_to_move = np.random.normal(scale=gaussian_std,
-                                        size=(NPOPULATION, N_ANTENNAE, 2))
+                                        size=(NPOPULATION, NANTENNAE, 2))
     if DEBUG_MESSAGES:
         print(which_to_move)
     r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
@@ -153,10 +155,15 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
 #======PLOTTING======
-def plot_fitness(mean_fitness_history, max_fitness_history, filename=False, show=True, save=True):
+def plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history, filename=False, show=True, save=True):
     if show or save:
         plt.plot(mean_fitness_history, "o-", label="Average fitness")
         plt.plot(max_fitness_history, "o-", label="Max fitness")
+        plt.fill_between(np.arange(std_fitness_history.size),
+                        mean_fitness_history+std_fitness_history,
+                        mean_fitness_history-std_fitness_history,
+                        alpha=0.5,
+                        facecolor='orange')
         plt.xlabel("Generation #")
         plt.ylabel("Fitness")
         plt.ylim(0,1)
@@ -245,7 +252,7 @@ def plot_single(r_antennae, generation_number, filename=None, show=True, save=Tr
             return fig
 
 #=====MAIN===========
-def main_loop(N_generations):
+def main_loop(NGENERATIONS):
     """
     TODO: czym właściwie jest nasza generacja?
     * zbiorem N anten (macierz Nx2 floatów)?
@@ -257,16 +264,17 @@ def main_loop(N_generations):
     na razie zróbmy wolno i na forach :)
     """
 
-    r_antennae_population = np.random.random((NPOPULATION, N_ANTENNAE, 2))
+    r_antennae_population = np.random.random((NPOPULATION, NANTENNAE, 2))
 
-    print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0),end='')
+    print("Generation {}/{}, {:.0f}% done".format(0, NGENERATIONS, 0),end='')
 
-    max_fitness_history = np.zeros(N_generations)
-    mean_fitness_history = np.zeros(N_generations)
-    for n in range(N_generations): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
-        print("\rGeneration {}/{}, {:.0f}% done".format(n, N_generations, n/N_generations*100),end='')
+    max_fitness_history = np.zeros(NGENERATIONS)
+    mean_fitness_history = np.zeros(NGENERATIONS)
+    std_fitness_history = np.zeros(NGENERATIONS)
+    for n in range(NGENERATIONS): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
+        print("\rGeneration {}/{}, {:.0f}% done".format(n, NGENERATIONS, n/NGENERATIONS*100),end='')
         plot_population(r_antennae_population, n,
-                        filename="{:02d}.png".format(N_GENERATIONS),
+                        filename="{:02d}.png".format(NGENERATIONS),
                         show=PLOT_AT_RUNTIME, save=SAVE_AT_RUNTIME)
 
         #nonessential
@@ -277,9 +285,10 @@ def main_loop(N_generations):
         if DEBUG_MESSAGES:
             print(r_antennae_population)
             print("Before selection")
-        max_fit, mean_fit = selection(r_antennae_population)
+        max_fit, mean_fit, std_fit = selection(r_antennae_population)
         max_fitness_history[n] = max_fit
         mean_fitness_history[n] = mean_fit
+        std_fitness_history[n] = std_fit
         if DEBUG_MESSAGES:
             print("After selection")
             print(r_antennae_population)
@@ -294,8 +303,8 @@ def main_loop(N_generations):
             print("After mutation")
             print(r_antennae_population)
     print("\rJob's finished!")
-    plot_population(r_antennae_population, N_generations,
-                    filename="{:02d}.png".format(N_GENERATIONS),
+    plot_population(r_antennae_population, NGENERATIONS,
+                    filename="{:02d}.png".format(NGENERATIONS),
                     show=PLOT_AT_RUNTIME, save=True)
     #znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
@@ -304,15 +313,15 @@ def main_loop(N_generations):
     r_best = r_antennae_population[best_candidate]
     print(r_best)
 
-    plot_single(r_best, N_generations,
-                filename="{:02d}_max.png".format(N_GENERATIONS),
-                show=PLOT_AT_RUNTIME, save=True)
+    plot_single(r_best, NGENERATIONS,
+                filename="{:02d}_max.png".format(NGENERATIONS),
+                show=True, save=True)
 
     np.savetxt("meanfit.dat", mean_fitness_history)
     np.savetxt("maxfit.dat", max_fitness_history)
     print(mean_fitness_history)
     print(max_fitness_history)
-    # plot_fitness(mean_fitness_history, max_fitness_history)
+    plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history)
 if __name__=="__main__":
-    main_loop(N_GENERATIONS)
-    plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))
+    main_loop(NGENERATIONS)
+    # plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

@@ -44,7 +44,7 @@ DEBUG_MESSAGES = False
 PLOT_AT_RUNTIME = True
 
 # np.random.seed(0)
-
+#=======CALCULATIONS======
 def antenna_coverage_population(R_antenna, r_grid, zasieg=DEFAULT_POWER):
     result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
     for i, population_member in enumerate(R_antenna):
@@ -76,6 +76,92 @@ def antenna_coverage(r_antenna, r_grid, zasieg=DEFAULT_POWER):
     # TODO: ujemne wagi przez maksymalną możliwą
 
     return result
+
+def utility_function(coverage_population, weights = WEIGHTS):
+    """returns total coverage as fraction of grid size
+    for use in the following genetic operators
+    this way we're optimizing a bounded function (values from 0 to 1)"""
+    return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
+
+temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
+
+def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
+    coverage_population = antenna_coverage_population(r_antennae_population, R)
+    utility_function_values = utility_function(weights * coverage_population)
+    utility_function_total = utility_function_values.sum()
+    utility_function_normalized = utility_function_values / utility_function_total
+    # print(utility_function_values)
+    dystrybuanta = utility_function_normalized.cumsum()
+    random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
+
+    new_r_antennae_population = tmp_array
+    # for i, x in enumerate(random_x.T):
+    #     indeks = (x > dystrybuanta).sum()
+    #     print(indeks)
+    #     new_r_antennae_population[i] = r_antennae_population[indeks]
+    new_r_antennae_population[...] = r_antennae_population[(random_x >\
+        dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
+
+    r_antennae_population[...] = new_r_antennae_population[...]
+    return utility_function_values.max(), utility_function_values.mean()
+
+def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
+    tmp_array[...] = r_antennae_population[...]
+    for i in range(0, N_POPULATION, 2):
+        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
+            cutoff = np.random.randint(0, N_ANTENNAE)
+            a = r_antennae_population[i+1]
+            b = r_antennae_population[i]
+            if DEBUG_MESSAGES:
+                print("Exchanging these two at k = {}".format(cutoff))
+                print(a)
+                print(b)
+            tmp_array[i, cutoff:] = a[cutoff:]
+            tmp_array[i+1, cutoff:] = b[cutoff:]
+            if DEBUG_MESSAGES:
+                print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
+    r_antennae_population[...] = tmp_array[...]
+
+def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MUTATION):
+    """
+    https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
+
+    acts in place!
+
+    podoba mi się pomysł który mają na wiki, żeby mutacja
+    1. przesuwała wszystkie anteny o jakiś losowy wektor z gaussowskiej
+    dystrybucji
+    2. (konieczność u nas:) renormalizowała położenia anten do pudełka
+    (xmin, xmax), (ymin, ymax)
+
+    pytanie - czy wystarczy zrobić okresowe warunki brzegowe (modulo), czy skoki
+    tym spowodowane będą za duże (bo nie mamy okresowości na pokryciu)?
+    w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
+    """
+    # don't want to move population P's antenna A's X without moving its Y
+    # which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
+    which_to_move = np.ones((N_POPULATION, N_ANTENNAE))
+    how_much_to_move = np.random.normal(scale=gaussian_std,
+                                        size=(N_POPULATION, N_ANTENNAE, 2))
+    if DEBUG_MESSAGES:
+        print(which_to_move)
+    r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
+
+    # TODO: zamienić okresowe warunki brzegowe na wymuszanie 0 w ujemnych fitnessach
+    # TODO: bądź negatywne premiowanie jeśli kółka się nie spełniają
+    r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
+    r_antennae_population[:, :, 1] %= YMAX        # likewise?
+
+#======PLOTTING======
+def plot_fitness(mean_fitness_history, max_fitness_history):
+    plt.plot(mean_fitness_history, "o-", label="Average fitness")
+    plt.plot(max_fitness_history, "o-", label="Max fitness")
+    plt.xlabel("Generation #")
+    plt.ylabel("Fitness")
+    plt.ylim(0,1)
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 def plot_population(r_antennae_population, generation_number):
     """
@@ -141,94 +227,7 @@ def plot_single(r_antennae, generation_number):
 
     return fig
 
-def utility_function(coverage_population, weights = WEIGHTS):
-    """returns total coverage as fraction of grid size
-    for use in the following genetic operators
-    this way we're optimizing a bounded function (values from 0 to 1)"""
-    return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
-
-temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
-
-def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
-    coverage_population = antenna_coverage_population(r_antennae_population, R)
-    utility_function_values = utility_function(weights * coverage_population)
-    utility_function_total = utility_function_values.sum()
-    utility_function_normalized = utility_function_values / utility_function_total
-    # print(utility_function_values)
-    dystrybuanta = utility_function_normalized.cumsum()
-    random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
-
-    new_r_antennae_population = tmp_array
-    # for i, x in enumerate(random_x.T):
-    #     indeks = (x > dystrybuanta).sum()
-    #     print(indeks)
-    #     new_r_antennae_population[i] = r_antennae_population[indeks]
-    new_r_antennae_population[...] = r_antennae_population[(random_x >\
-        dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
-
-    r_antennae_population[...] = new_r_antennae_population[...]
-    return utility_function_values.max(), utility_function_values.mean()
-
-
-
-def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
-    tmp_array[...] = r_antennae_population[...]
-    for i in range(0, N_POPULATION, 2):
-        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
-            cutoff = np.random.randint(0, N_ANTENNAE)
-            a = r_antennae_population[i+1]
-            b = r_antennae_population[i]
-            if DEBUG_MESSAGES:
-                print("Exchanging these two at k = {}".format(cutoff))
-                print(a)
-                print(b)
-            tmp_array[i, cutoff:] = a[cutoff:]
-            tmp_array[i+1, cutoff:] = b[cutoff:]
-            if DEBUG_MESSAGES:
-                print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
-    r_antennae_population[...] = tmp_array[...]
-
-
-def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MUTATION):
-    """
-    https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)
-
-    acts in place!
-
-    podoba mi się pomysł który mają na wiki, żeby mutacja
-    1. przesuwała wszystkie anteny o jakiś losowy wektor z gaussowskiej
-    dystrybucji
-    2. (konieczność u nas:) renormalizowała położenia anten do pudełka
-    (xmin, xmax), (ymin, ymax)
-
-    pytanie - czy wystarczy zrobić okresowe warunki brzegowe (modulo), czy skoki
-    tym spowodowane będą za duże (bo nie mamy okresowości na pokryciu)?
-    w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
-    """
-    # don't want to move population P's antenna A's X without moving its Y
-    # which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
-    which_to_move = np.ones((N_POPULATION, N_ANTENNAE))
-    how_much_to_move = np.random.normal(scale=gaussian_std,
-                                        size=(N_POPULATION, N_ANTENNAE, 2))
-    if DEBUG_MESSAGES:
-        print(which_to_move)
-    r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
-
-    # TODO: zamienić okresowe warunki brzegowe na wymuszanie 0 w ujemnych fitnessach
-    # TODO: bądź negatywne premiowanie jeśli kółka się nie spełniają
-    r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
-    r_antennae_population[:, :, 1] %= YMAX        # likewise?
-
-def plot_fitness(mean_fitness_history, max_fitness_history):
-    plt.plot(mean_fitness_history, "o-", label="Average fitness")
-    plt.plot(max_fitness_history, "o-", label="Max fitness")
-    plt.xlabel("Generation #")
-    plt.ylabel("Fitness")
-    plt.ylim(0,1)
-    plt.legend()
-    plt.grid()
-    plt.show()
-
+#=====MAIN===========
 def main_loop(N_generations):
     """
     TODO: czym właściwie jest nasza generacja?

@@ -38,7 +38,7 @@ UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
 WEIGHTS = UNIFORM_WEIGHTS
 
 WEIGHTS_NORM = np.sum(WEIGHTS)
-WEIGHTS /= WEIGHTS_NORM
+# WEIGHTS /= WEIGHTS_NORM
 
 DEBUG_MESSAGES = True
 PLOT_AT_RUNTIME = False
@@ -87,7 +87,7 @@ temp_array = np.empty((NPOPULATION, N_ANTENNAE, 2))
 
 def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
-    utility_function_values = utility_function(weights * coverage_population)
+    utility_function_values = utility_function(coverage_population, WEIGHTS)
     utility_function_total = utility_function_values.sum()
     utility_function_normalized = utility_function_values / utility_function_total
     # print(utility_function_values)
@@ -315,4 +315,4 @@ def main_loop(N_generations):
     # plot_fitness(mean_fitness_history, max_fitness_history)
 if __name__=="__main__":
     main_loop(N_GENERATIONS)
-    # plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))
+    plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

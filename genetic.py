@@ -11,8 +11,8 @@ YMIN = 0.
 YMAX = 1.
 
 # grid resolution
-NX = 50
-NY = 50
+NX = 100
+NY = 100
 
 # prepare 2D grid
 x, DX = np.linspace(XMIN, XMAX, NX, retstep=True, endpoint=False)
@@ -20,15 +20,15 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
-NPOPULATION = 4
-NGENERATIONS = 2
-NANTENNAE = 5
+NPOPULATION = 25
+NGENERATIONS = 50
+NANTENNAE = 20
 # N pi r^2 = 1
 
 # r = (1/ N pi)**0.5
 DEFAULT_POWER = (np.pi * NANTENNAE)**-0.5
-P_CROSSOVER = 1e-3
-P_MUTATION = 0
+P_CROSSOVER = 0.01
+P_MUTATION = 1e-2
 MUTATION_STD = 0.01
 
 # # population as weights, for now let's focus on the uniform population case
@@ -40,8 +40,8 @@ WEIGHTS = UNIFORM_WEIGHTS
 WEIGHTS_NORM = np.sum(WEIGHTS)
 # WEIGHTS /= WEIGHTS_NORM
 
-DEBUG_MESSAGES = True
-PLOT_AT_RUNTIME = True
+DEBUG_MESSAGES = False
+PLOT_AT_RUNTIME = False
 SAVE_AT_RUNTIME = False
 np.random.seed(0)
 
@@ -85,30 +85,31 @@ def utility_function(coverage_population, weights = WEIGHTS):
     this way we're optimizing a bounded function (values from 0 to 1)"""
     return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
 
-temp_array = np.empty((NPOPULATION, NANTENNAE, 2))
+TEMP_ARRAY = np.empty((NPOPULATION, NANTENNAE, 2))
 
-def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
+def selection(r_antennae_population, weights = WEIGHTS):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
-    utility_function_values = utility_function(coverage_population, WEIGHTS)
+    utility_function_values = utility_function(coverage_population, weights)
     utility_function_total = utility_function_values.sum()
     utility_function_normalized = utility_function_values / utility_function_total
     dystrybuanta = utility_function_normalized.cumsum()
     random_x = np.random.random(NPOPULATION).reshape(1, NPOPULATION)
 
-    new_r_antennae_population = tmp_array
+    new_r_antennae_population = TEMP_ARRAY
     # for i, x in enumerate(random_x.T):
     #     indeks = (x > dystrybuanta).sum()
     #     print(indeks)
     #     new_r_antennae_population[i] = r_antennae_population[indeks]
     selected_targets = (random_x > dystrybuanta.reshape(NPOPULATION, 1)).sum(axis=0)
-    print(selected_targets, utility_function_normalized, sep='\n')
-    new_r_antennae_population[...] = r_antennae_population[selected_targets]
+    # print(selected_targets, utility_function_values, sep='\n')
+    print(utility_function_values.max(), utility_function_values.mean(), utility_function_values.std())
 
+    new_r_antennae_population[...] = r_antennae_population[selected_targets]
     r_antennae_population[...] = new_r_antennae_population[...]
     return utility_function_values.max(), utility_function_values.mean(), utility_function_values.std()
 
-def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
-    tmp_array[...] = r_antennae_population[...]
+def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER):
+    TEMP_ARRAY[...] = r_antennae_population[...]
     for i in range(0, NPOPULATION, 2):
         if i + 1 < NPOPULATION and np.random.random() < probability_crossover:
             cutoff = np.random.randint(0, NANTENNAE)
@@ -118,11 +119,11 @@ def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER,
                 print("Exchanging these two at k = {}".format(cutoff))
                 print(a)
                 print(b)
-            tmp_array[i, cutoff:] = a[cutoff:]
-            tmp_array[i+1, cutoff:] = b[cutoff:]
+            TEMP_ARRAY[i, cutoff:] = a[cutoff:]
+            TEMP_ARRAY[i+1, cutoff:] = b[cutoff:]
             if DEBUG_MESSAGES:
-                print("They are now", tmp_array[i], tmp_array[i+1], sep="\n")
-    r_antennae_population[...] = tmp_array[...]
+                print("They are now", TEMP_ARRAY[i], TEMP_ARRAY[i+1], sep="\n")
+    r_antennae_population[...] = TEMP_ARRAY[...]
 
 def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MUTATION):
     """
@@ -141,8 +142,8 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
     """
     # don't want to move population P's antenna A's X without moving its Y
-    # which_to_move = (np.random.random((NPOPULATION, NANTENNAE)) < p_mutation)
-    which_to_move = np.ones((NPOPULATION, NANTENNAE))
+    which_to_move = (np.random.random((NPOPULATION, NANTENNAE)) < p_mutation)
+    # which_to_move = np.ones((NPOPULATION, NANTENNAE))
     how_much_to_move = np.random.normal(scale=gaussian_std,
                                         size=(NPOPULATION, NANTENNAE, 2))
     if DEBUG_MESSAGES:

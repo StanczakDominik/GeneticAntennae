@@ -20,8 +20,8 @@ y, DY = np.linspace(YMIN, YMAX, NY, retstep=True, endpoint=False)
 X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
-N_POPULATION = 50
-N_GENERATIONS = 20
+NPOPULATION = 20
+N_GENERATIONS = 10
 N_ANTENNAE = 4
 # N pi r^2 = 1
 
@@ -29,7 +29,7 @@ N_ANTENNAE = 4
 DEFAULT_POWER = (np.pi * N_ANTENNAE)**-0.5
 P_CROSSOVER = 0.2
 P_MUTATION = 1e-3
-MUTATION_STD = 0.1
+MUTATION_STD = 0.01
 
 # # population as weights, for now let's focus on the uniform population case
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
@@ -40,13 +40,13 @@ WEIGHTS = UNIFORM_WEIGHTS
 WEIGHTS_NORM = np.sum(WEIGHTS)
 WEIGHTS /= WEIGHTS_NORM
 
-DEBUG_MESSAGES = False
-PLOT_AT_RUNTIME = True
-
+DEBUG_MESSAGES = True
+PLOT_AT_RUNTIME = False
+SAVE_AT_RUNTIME = True
 # np.random.seed(0)
 #=======CALCULATIONS======
 def antenna_coverage_population(R_antenna, r_grid, zasieg=DEFAULT_POWER):
-    result_array = np.empty((N_POPULATION, NX, NY), dtype=bool)
+    result_array = np.empty((NPOPULATION, NX, NY), dtype=bool)
     for i, population_member in enumerate(R_antenna):
         result_array[i] = antenna_coverage(population_member, r_grid, zasieg)
     return result_array
@@ -83,7 +83,7 @@ def utility_function(coverage_population, weights = WEIGHTS):
     this way we're optimizing a bounded function (values from 0 to 1)"""
     return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
 
-temp_array = np.empty((N_POPULATION, N_ANTENNAE, 2))
+temp_array = np.empty((NPOPULATION, N_ANTENNAE, 2))
 
 def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     coverage_population = antenna_coverage_population(r_antennae_population, R)
@@ -92,7 +92,7 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     utility_function_normalized = utility_function_values / utility_function_total
     # print(utility_function_values)
     dystrybuanta = utility_function_normalized.cumsum()
-    random_x = np.random.random(N_POPULATION).reshape(1, N_POPULATION)
+    random_x = np.random.random(NPOPULATION).reshape(1, NPOPULATION)
 
     new_r_antennae_population = tmp_array
     # for i, x in enumerate(random_x.T):
@@ -100,15 +100,15 @@ def selection(r_antennae_population, weights = WEIGHTS, tmp_array = temp_array):
     #     print(indeks)
     #     new_r_antennae_population[i] = r_antennae_population[indeks]
     new_r_antennae_population[...] = r_antennae_population[(random_x >\
-        dystrybuanta.reshape(N_POPULATION, 1)).sum(axis=0)]
+        dystrybuanta.reshape(NPOPULATION, 1)).sum(axis=0)]
 
     r_antennae_population[...] = new_r_antennae_population[...]
     return utility_function_values.max(), utility_function_values.mean()
 
 def crossover_cutoff(r_antennae_population, probability_crossover = P_CROSSOVER, tmp_array = temp_array):
     tmp_array[...] = r_antennae_population[...]
-    for i in range(0, N_POPULATION, 2):
-        if i + 1 < N_POPULATION and np.random.random() < probability_crossover:
+    for i in range(0, NPOPULATION, 2):
+        if i + 1 < NPOPULATION and np.random.random() < probability_crossover:
             cutoff = np.random.randint(0, N_ANTENNAE)
             a = r_antennae_population[i+1]
             b = r_antennae_population[i]
@@ -139,10 +139,10 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     w tym momencie - może lepiej zamiast tego robić coś typu max(xmax, x+dx)?
     """
     # don't want to move population P's antenna A's X without moving its Y
-    # which_to_move = (np.random.random((N_POPULATION, N_ANTENNAE)) < p_mutation)
-    which_to_move = np.ones((N_POPULATION, N_ANTENNAE))
+    # which_to_move = (np.random.random((NPOPULATION, N_ANTENNAE)) < p_mutation)
+    which_to_move = np.ones((NPOPULATION, N_ANTENNAE))
     how_much_to_move = np.random.normal(scale=gaussian_std,
-                                        size=(N_POPULATION, N_ANTENNAE, 2))
+                                        size=(NPOPULATION, N_ANTENNAE, 2))
     if DEBUG_MESSAGES:
         print(which_to_move)
     r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
@@ -153,79 +153,96 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
 #======PLOTTING======
-def plot_fitness(mean_fitness_history, max_fitness_history):
-    plt.plot(mean_fitness_history, "o-", label="Average fitness")
-    plt.plot(max_fitness_history, "o-", label="Max fitness")
-    plt.xlabel("Generation #")
-    plt.ylabel("Fitness")
-    plt.ylim(0,1)
-    plt.legend()
-    plt.grid()
-    plt.show()
+def plot_fitness(mean_fitness_history, max_fitness_history, filename=False, show=True, save=True):
+    if show or save:
+        plt.plot(mean_fitness_history, "o-", label="Average fitness")
+        plt.plot(max_fitness_history, "o-", label="Max fitness")
+        plt.xlabel("Generation #")
+        plt.ylabel("Fitness")
+        plt.ylim(0,1)
+        plt.legend()
+        plt.grid()
+        if filename and save:
+            plt.savefig(filename)
+        if show:
+            plt.show()
+        else:
+            pass
 
-def plot_population(r_antennae_population, generation_number):
+def plot_population(r_antennae_population, generation_number, filename=None, show=True, save=True):
     """
     plot grid values (coverage (weighted optionally) and antenna locations)
     """
-    fig, axis = plt.subplots()
-    values = antenna_coverage_population(r_antennae_population, r_grid=R)
-    utility_function_values = utility_function(values, WEIGHTS)
-    best_candidate = np.argmax(utility_function_values)
+    if show or save:
+        fig, axis = plt.subplots()
+        values = antenna_coverage_population(r_antennae_population, r_grid=R)
+        utility_function_values = utility_function(values, WEIGHTS)
+        best_candidate = np.argmax(utility_function_values)
 
-    for i, antenna_locations in enumerate(r_antennae_population):
-        x_a, y_a = antenna_locations.T
-        marker_size = 10
-        alpha = 0.6
-        if i == best_candidate:
-            marker_size *= 2
-            alpha = 1
-        axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
+        for i, antenna_locations in enumerate(r_antennae_population):
+            x_a, y_a = antenna_locations.T
+            marker_size = 10
+            alpha = 0.6
+            if i == best_candidate:
+                marker_size *= 2
+                alpha = 1
+            axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
 
-    axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
-    configurations = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
-    fig.colorbar(configurations)
+        axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
+        configurations = axis.contourf(X, Y, values.sum(axis=0), 100, cmap='viridis', alpha=0.5)
+        fig.colorbar(configurations)
 
-    axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
-        generation_number,
-        utility_function_values.mean(),
-        utility_function_values.std(),
-        utility_function_values.max(),
-        ))
-    axis.set_xlabel("x")
-    axis.set_ylabel("y")
-    axis.set_xlim(XMIN, XMAX)
-    axis.set_ylim(YMIN, YMAX)
-    # axis.legend(loc='best')
-    return fig
+        axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
+            generation_number,
+            utility_function_values.mean(),
+            utility_function_values.std(),
+            utility_function_values.max(),
+            ))
+        axis.set_xlabel("x")
+        axis.set_ylabel("y")
+        axis.set_xlim(XMIN, XMAX)
+        axis.set_ylim(YMIN, YMAX)
+        # axis.legend(loc='best')
+        if save and filename:
+            fig.savefig(filename)
+        if show:
+            plt.show()
+        else:
+            return fig
 
-def plot_single(r_antennae, generation_number):
+def plot_single(r_antennae, generation_number, filename=None, show=True, save=True):
     """
     plot grid values (coverage (weighted optionally) and antenna locations)
     """
-    fig, axis = plt.subplots()
-    values = antenna_coverage(r_antennae, r_grid=R)
-    utility_function_value = (WEIGHTS*values).sum()/NX/NY
+    if show or save:
+        fig, axis = plt.subplots()
+        values = antenna_coverage(r_antennae, r_grid=R)
+        utility_function_value = (WEIGHTS*values).sum()/NX/NY
 
-    x_a, y_a = r_antennae.T
-    marker_size = 20
-    alpha = 1
-    axis.plot(x_a, y_a, "*", ms=marker_size, alpha=alpha)
+        x_a, y_a = r_antennae.T
+        marker_size = 20
+        alpha = 1
+        axis.plot(x_a, y_a, "*", ms=marker_size, alpha=alpha)
 
-    axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
-    configurations = axis.contourf(X, Y, values, 100, cmap='viridis', alpha=0.5)
-    fig.colorbar(configurations)
+        axis.contourf(X, Y, WEIGHTS, 100, cmap='viridis', label="Coverage")
+        configurations = axis.contourf(X, Y, values, 100, cmap='viridis', alpha=0.5)
+        fig.colorbar(configurations)
 
-    axis.set_title(r"Generation {}, optimal candidate, f {:.2f}".format(
-        generation_number,
-        utility_function_value,
-        ))
-    axis.set_xlabel("x")
-    axis.set_ylabel("y")
-    axis.set_xlim(XMIN, XMAX)
-    axis.set_ylim(YMIN, YMAX)
-    # axis.legend(loc='best')
-
-    return fig
+        axis.set_title(r"Generation {}, optimal candidate, f {:.2f}".format(
+            generation_number,
+            utility_function_value,
+            ))
+        axis.set_xlabel("x")
+        axis.set_ylabel("y")
+        axis.set_xlim(XMIN, XMAX)
+        axis.set_ylim(YMIN, YMAX)
+        # axis.legend(loc='best')
+        if filename and save:
+            fig.savefig(filename)
+        if show:
+            plt.show()
+        else:
+            return fig
 
 #=====MAIN===========
 def main_loop(N_generations):
@@ -240,7 +257,7 @@ def main_loop(N_generations):
     na razie zróbmy wolno i na forach :)
     """
 
-    r_antennae_population = np.random.random((N_POPULATION, N_ANTENNAE, 2))
+    r_antennae_population = np.random.random((NPOPULATION, N_ANTENNAE, 2))
 
     print("Generation {}/{}, {:.0f}% done".format(0, N_generations, 0),end='')
 
@@ -248,10 +265,9 @@ def main_loop(N_generations):
     mean_fitness_history = np.zeros(N_generations)
     for n in range(N_generations): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
         print("\rGeneration {}/{}, {:.0f}% done".format(n, N_generations, n/N_generations*100),end='')
-        if PLOT_AT_RUNTIME:
-            fig = plot_population(r_antennae_population, n)
-            fig.savefig("{}.png".format(n))
-            plt.close(fig)
+        plot_population(r_antennae_population, n,
+                        filename="{:02d}.png".format(N_GENERATIONS),
+                        show=PLOT_AT_RUNTIME, save=SAVE_AT_RUNTIME)
 
         #nonessential
         coverage_population = antenna_coverage_population(r_antennae_population, R)
@@ -278,20 +294,19 @@ def main_loop(N_generations):
             print("After mutation")
             print(r_antennae_population)
     print("\rJob's finished!")
-    if PLOT_AT_RUNTIME:
-        fig = plot_population(r_antennae_population, N_generations)
-        fig.savefig("{:02d}.png".format(N_GENERATIONS))
-        plt.close(fig)
-
+    plot_population(r_antennae_population, N_generations,
+                    filename="{:02d}.png".format(N_GENERATIONS),
+                    show=PLOT_AT_RUNTIME, save=True)
     #znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
     utility_function_values = utility_function(values, WEIGHTS)
     best_candidate = np.argmax(utility_function_values)
     r_best = r_antennae_population[best_candidate]
     print(r_best)
-    fig = plot_single(r_best, N_generations)
-    fig.savefig("{}_max.png".format(N_GENERATIONS))
-    plt.close('all')
+
+    plot_single(r_best, N_generations,
+                filename="{:02d}_max.png".format(N_GENERATIONS),
+                show=PLOT_AT_RUNTIME, save=True)
 
     np.savetxt("meanfit.dat", mean_fitness_history)
     np.savetxt("maxfit.dat", max_fitness_history)

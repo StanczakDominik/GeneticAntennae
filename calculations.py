@@ -3,6 +3,7 @@ import numpy as np
 XMAX = 1
 YMAX = 1
 
+
 def antenna_coverage_population(R_antenna, r_grid, zasieg):
     NPOPULATION = R_antenna.shape[0]
     NX, NY = r_grid[0].shape
@@ -23,7 +24,7 @@ def antenna_coverage(r_antenna, r_grid, zasieg):
     both are then broadcasted to (N, 2, NX, NY)
     """
     distance_squared = ((r_antenna[..., np.newaxis, np.newaxis] -
-                         r_grid[np.newaxis, ...])**2).sum(axis=1)
+                         r_grid[np.newaxis, ...]) ** 2).sum(axis=1)
 
     # TODO: decide if we want to go for 1/r^2 antenna coverage
     # result = (zasieg*ANTENNA_RADIUS**2/distance_squared).sum(axis=0)
@@ -31,8 +32,8 @@ def antenna_coverage(r_antenna, r_grid, zasieg):
     # result[np.isinf(result)] = 0 # TODO: find better solution
 
     # binary coverage case
-    result = (distance_squared < zasieg**2) # is grid entry covered by any
-    result = result.sum(axis=0) > 0        # logical or
+    result = (distance_squared < zasieg ** 2)  # is grid entry covered by any
+    result = result.sum(axis=0) > 0  # logical or
     result = result > 0
 
     # TODO: ujemne wagi przez maksymalną możliwą
@@ -45,7 +46,7 @@ def utility_function(coverage_population, weights):
     for use in the following genetic operators
     this way we're optimizing a bounded function (values from 0 to 1)"""
     NX, NY = weights.shape
-    return (weights.reshape(1,NX,NY)*coverage_population).sum(axis=(1,2))/NX/NY
+    return (weights.reshape(1, NX, NY) * coverage_population).sum(axis=(1, 2)) / NX / NY
 
 
 def selection(r_antennae_population, R, weights, zasieg, TEMP_ARRAY):
@@ -78,14 +79,14 @@ def crossover_cutoff(r_antennae_population, probability_crossover, TEMP_ARRAY):
     for i in range(0, NPOPULATION, 2):
         if i + 1 < NPOPULATION and np.random.random() < probability_crossover:
             cutoff = np.random.randint(0, NANTENNAE)
-            a = r_antennae_population[i+1]
+            a = r_antennae_population[i + 1]
             b = r_antennae_population[i]
             # if DEBUG_MESSAGES:
             #     print("Exchanging these two at k = {}".format(cutoff))
             #     print(a)
             #     print(b)
             TEMP_ARRAY[i, cutoff:] = a[cutoff:]
-            TEMP_ARRAY[i+1, cutoff:] = b[cutoff:]
+            TEMP_ARRAY[i + 1, cutoff:] = b[cutoff:]
             # if DEBUG_MESSAGES:
             #     print("They are now", TEMP_ARRAY[i], TEMP_ARRAY[i+1], sep="\n")
     r_antennae_population[...] = TEMP_ARRAY[...]
@@ -120,5 +121,5 @@ def mutation(r_antennae_population, gaussian_std, p_mutation):
 
     # TODO: zamienić okresowe warunki brzegowe na wymuszanie 0 w ujemnych fitnessach
     # TODO: bądź negatywne premiowanie jeśli kółka się nie spełniają
-    r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
-    r_antennae_population[:, :, 1] %= YMAX        # likewise?
+    r_antennae_population[:, :, 0] %= XMAX  # does this need xmin somehow?
+    r_antennae_population[:, :, 1] %= YMAX  # likewise?

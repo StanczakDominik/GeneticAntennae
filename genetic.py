@@ -31,7 +31,7 @@ P_MUTATION = 1
 MUTATION_STD = 0.1
 
 # # population as weights, for now let's focus on the uniform population case
-DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
+DISTANCES = ((R - np.array([(XMAX - XMIN) / 2, (YMAX - YMIN) / 2], ndmin=3).T) ** 2).sum(axis=0)
 # WEIGHTS = np.exp(-DISTANCES*10)
 UNIFORM_WEIGHTS = np.ones_like(DISTANCES)
 WEIGHTS = UNIFORM_WEIGHTS
@@ -45,11 +45,12 @@ SAVE_AT_RUNTIME = False
 SHOW_FINAL_CONFIGURATION = True
 np.random.seed(0)
 
-#=======CALCULATIONS======
+# =======CALCULATIONS======
 
 TEMP_ARRAY = np.empty((NPOPULATION, NANTENNAE, 2))
 
-#=====MAIN===========
+
+# =====MAIN===========
 def main_loop(n_generations, weights=WEIGHTS):
     """
     TODO: czym właściwie jest nasza generacja?
@@ -63,19 +64,19 @@ def main_loop(n_generations, weights=WEIGHTS):
     """
 
     # r_antennae_population = np.random.random((NPOPULATION, NANTENNAE, 2))
-    r_antennae_population = np.ones((NPOPULATION, NANTENNAE, 2))/2
+    r_antennae_population = np.ones((NPOPULATION, NANTENNAE, 2)) / 2
     print("Generation {}/{}, {:.0f}% done".format(0, n_generations, 0), end='')
 
     max_fitness_history = np.zeros(n_generations)
     mean_fitness_history = np.zeros(n_generations)
     std_fitness_history = np.zeros(n_generations)
-    for n in range(n_generations): # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
+    for n in range(n_generations):  # TODO: ew. inny warunek, np. mała różnica kolejnych wartości
         print("\rGeneration {}/{}, {:.0f}% done".format(n, n_generations, n / n_generations * 100), end='')
         plot_population(r_antennae_population, n, R, DEFAULT_POWER, weights,
                         filename="data/{:02d}.png".format(n_generations),
                         show=PLOT_AT_RUNTIME, save=SAVE_AT_RUNTIME)
 
-        #nonessential
+        # nonessential
         coverage_population = antenna_coverage_population(r_antennae_population, R, zasieg=DEFAULT_POWER)
         if DEBUG_MESSAGES:
             print(utility_function(coverage_population, weights))
@@ -83,7 +84,8 @@ def main_loop(n_generations, weights=WEIGHTS):
         if DEBUG_MESSAGES:
             print(r_antennae_population)
             print("Before selection")
-        max_fit, mean_fit, std_fit = selection(r_antennae_population, R, weights, zasieg=DEFAULT_POWER, TEMP_ARRAY=TEMP_ARRAY)
+        max_fit, mean_fit, std_fit = selection(r_antennae_population, R, weights, zasieg=DEFAULT_POWER,
+                                               TEMP_ARRAY=TEMP_ARRAY)
         max_fitness_history[n] = max_fit
         mean_fitness_history[n] = mean_fit
         std_fitness_history[n] = std_fit
@@ -104,7 +106,7 @@ def main_loop(n_generations, weights=WEIGHTS):
     plot_population(r_antennae_population, n_generations, R, DEFAULT_POWER, weights,
                     filename="data/{:02d}.png".format(n_generations),
                     show=SHOW_FINAL_CONFIGURATION, save=True)
-    #znalezienie optymalnego
+    # znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, R, DEFAULT_POWER)
     utility_function_values = utility_function(values, WEIGHTS)
     best_candidate = np.argmax(utility_function_values)
@@ -119,6 +121,7 @@ def main_loop(n_generations, weights=WEIGHTS):
     print(max_fitness_history)
     plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history, filename="data/fitness.png", save=True)
     plt.show()
-    
-if __name__=="__main__":
+
+
+if __name__ == "__main__":
     main_loop(NGENERATIONS)

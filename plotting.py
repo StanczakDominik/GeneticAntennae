@@ -10,14 +10,14 @@ def plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history,
         ax.plot(mean_fitness_history, "o-", label="Average fitness")
         ax.plot(max_fitness_history, "o-", label="Max fitness")
         ax.fill_between(np.arange(std_fitness_history.size),
-                        mean_fitness_history+std_fitness_history,
-                        mean_fitness_history-std_fitness_history,
+                        mean_fitness_history + std_fitness_history,
+                        mean_fitness_history - std_fitness_history,
                         alpha=0.5,
                         facecolor='orange',
-                        label = "1 std")
+                        label="1 std")
         ax.set_xlabel("Generation #")
         ax.set_ylabel("Fitness")
-        ax.set_ylim(0,1)
+        ax.set_ylim(0, 1)
         ax.legend()
         ax.grid()
         if filename and save:
@@ -28,7 +28,8 @@ def plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history,
             plt.close(fig)
 
 
-def plot_population(r_antennae_population, generation_number, r_grid, zasieg, weights, filename=None, show=True, save=True):
+def plot_population(r_antennae_population, generation_number, r_grid, zasieg, weights, filename=None, show=True,
+                    save=True):
     """
     plot grid values (coverage (weighted optionally) and antenna locations)
     """
@@ -57,7 +58,7 @@ def plot_population(r_antennae_population, generation_number, r_grid, zasieg, we
             utility_function_values.mean(),
             utility_function_values.std(),
             utility_function_values.max(),
-            ))
+        ))
         axis.set_xlabel("x")
         axis.set_ylabel("y")
         axis.set_xlim(0, 1)
@@ -80,7 +81,7 @@ def plot_single(r_antennae, generation_number, r_grid, zasieg, weights, filename
         NX, NY = X.shape
         fig, axis = plt.subplots()
         values = antenna_coverage(r_antennae, r_grid, zasieg)
-        utility_function_value = (weights*values).sum()/NX/NY
+        utility_function_value = (weights * values).sum() / NX / NY
 
         x_a, y_a = r_antennae.T
         marker_size = 20
@@ -94,7 +95,7 @@ def plot_single(r_antennae, generation_number, r_grid, zasieg, weights, filename
         axis.set_title(r"Generation {}, optimal candidate, f {:.2f}".format(
             generation_number,
             utility_function_value,
-            ))
+        ))
         axis.set_xlabel("x")
         axis.set_ylabel("y")
         axis.set_xlim(0, 1)
@@ -106,4 +107,3 @@ def plot_single(r_antennae, generation_number, r_grid, zasieg, weights, filename
             return fig
         else:
             plt.close(fig)
-

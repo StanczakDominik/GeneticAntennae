@@ -29,10 +29,16 @@ class Grid():
     def renormalize_weights(self):
         self.weights /= self.weights.sum()
 
-    def antenna_coverage_population(self, population):
+    def antenna_coverage_population(self, population, i=-1):
+        if i > -1:
+            dataset = population.position_history[i]
+        else:
+            dataset = population.r_antennae_population
+
         result_array = np.empty((population.NPOPULATION, self.NX, self.NY), dtype=bool)
-        for i, population_member in enumerate(population.r_antennae_population):
-            result_array[i] = antenna_coverage(population_member, self.grid, population.DEFAULT_POWER)
+        for j, population_member in enumerate(dataset):
+            antena_coverage_value = antenna_coverage(population_member, self.grid, population.DEFAULT_POWER)
+            result_array[j] = antena_coverage_value
         return result_array
 
     def utility_function(self, coverage_population):

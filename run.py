@@ -9,5 +9,6 @@ if __name__ == '__main__':
     for n in range(pop.n_generations):
         pop.generation_cycle()
     pop.plot_fitness()
-    pop.plot_population(5)
+    for i in [0, 5, 10, -1]:
+        pop.plot_population(i)
     plt.show()

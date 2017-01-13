@@ -29,6 +29,13 @@ class Population():
         self.position_history = np.zeros(((self.n_generations, self.NPOPULATION, self.NANTENNAE, 2)))
         self.iteration = 0
 
+    def calculate_utility(self, plotting=False, i=-1):
+        coverage_population_values = self.grid.antenna_coverage_population(self)
+        utility_function_values = self.grid.utility_function(coverage_population_values)
+        if plotting:
+            return utility_function_values, coverage_population_values
+        else:
+            return utility_function_values
     """ genetic operators """
 
     def selection(self):
@@ -56,7 +63,7 @@ class Population():
         self.mean_fitness_history[self.iteration] = utility_function_values.mean()
         self.std_fitness_history[self.iteration] = utility_function_values.std()
 
-    def crossover_cutoff(self, ):
+    def crossover_cutoff(self):
         self.TEMP_ARRAY[...] = self.r_antennae_population[...]
         number_crossovers_occurred = 0
         for i in range(0, self.NPOPULATION, 2):
@@ -90,37 +97,37 @@ class Population():
 
     """ plotting routines"""
 
-    def plot_fitness(self, filename=False, show=True,
+    def plot_fitness(self, savefilename=False, show=True,
                      save=True):
-        if show or save:
-            fig, ax = plt.subplots()
-            ax.plot(self.mean_fitness_history, "o-", label="Average fitness")
-            ax.plot(self.max_fitness_history, "o-", label="Max fitness")
-            ax.fill_between(np.arange(self.n_generations),
-                            self.mean_fitness_history + self.std_fitness_history,
-                            self.mean_fitness_history - self.std_fitness_history,
-                            alpha=0.5,
-                            facecolor='orange',
-                            label="1 std")
-            ax.set_xlabel("Generation #")
-            ax.set_ylabel("Fitness")
-            ax.set_ylim(0, 1)
-            ax.legend()
-            ax.grid()
-            if filename and save:
-                fig.savefig(filename)
-            if show:
-                return fig
-            else:
-                plt.close(fig)
+        fig, ax = plt.subplots()
+        ax.plot(self.mean_fitness_history, "o-", label="Average fitness")
+        ax.plot(self.max_fitness_history, "o-", label="Max fitness")
+        ax.fill_between(np.arange(self.n_generations),
+                        self.mean_fitness_history + self.std_fitness_history,
+                        self.mean_fitness_history - self.std_fitness_history,
+                        alpha=0.5,
+                        facecolor='orange',
+                        label="1 std")
+        ax.set_xlabel("Generation #")
+        ax.set_ylabel("Fitness")
+        ax.set_ylim(0, 1)
+        ax.legend()
+        ax.grid()
+        if savefilename:
+            fig.savefig("data/" + savefilename)
+        if show:
+            return fig
+        plt.close(fig)
 
-    def plot_population(self, generation_number, only_winner=False, savefilename=None, show=True):
+    def plot_population(self, generation_number=-1, only_winner=False, savefilename=None, show=True):
         """
         plot grid values (coverage (weighted optionally) and antenna locations)
         """
+        # TODO: only_winner implementation
 
-        coverage_population_values = self.grid.antenna_coverage_population(self)
-        utility_function_values = self.grid.utility_function(coverage_population_values)
+        if generation_number == -1:
+            generation_number = self.n_generations - 1
+        utility_function_values, coverage_population_values = self.calculate_utility(plotting=True, i=generation_number)
         best_candidate = np.argmax(utility_function_values)
 
         fig, axis = plt.subplots()
@@ -150,7 +157,7 @@ class Population():
         axis.set_ylim(0, 1)
         # axis.legend(loc='best')
         if savefilename:
-            fig.savefig(savefilename)
+            fig.savefig("data/" + savefilename)
         if show:
             return fig
         plt.close(fig)

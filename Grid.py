@@ -15,12 +15,12 @@ class Grid():
         self.x, self.y = np.meshgrid(self.x, self.y)
         self.grid = np.stack((self.x, self.y), axis=0)
         self.weights = np.ones_like(self.x)
+        self.points_for_tree = list(zip(self.x.ravel(), self.y.ravel()))
+        self.tree = scipy.spatial.cKDTree(self.points_for_tree)
 
-        self.tree = scipy.spatial.cKDTree(list(zip(self.x.ravel(), self.y.ravel())))
-
-    def query(self, population):
-        return self.tree.query(population.location, population.number_expected_neighbors,
-                               distance_upper_bound=population.range)
+    def query(self, population, locations):
+        return self.tree.query(locations, population.number_expected_neighbors,
+                               distance_upper_bound=population.DEFAULT_POWER)
 
     def set_radial_exp_weights(self, exponent):
         distances = ((self.grid - np.array([self.NX / 2, self.NY / 2], ndmin=3).T) ** 2).sum(axis=0)
@@ -37,6 +37,7 @@ class Grid():
 
         result_array = np.empty((population.NPOPULATION, self.NX, self.NY), dtype=bool)
         for j, population_member in enumerate(dataset):
+            self.antenna_coverage_tree(population, population_member)
             antena_coverage_value = antenna_coverage(population_member, self.grid, population.DEFAULT_POWER)
             result_array[j] = antena_coverage_value
         return result_array
@@ -47,6 +48,10 @@ class Grid():
         this way we're optimizing a bounded function (values from 0 to 1)"""
         return (self.weights.reshape(1, self.NX, self.NY) * coverage_population).sum(axis=(1, 2)) / self.NX / self.NY
 
+    def antenna_coverage_tree(self, population, antenna_set):
+        nb_distances, nb_indices = self.query(population, antenna_set)
+        picked_neighbors = self.points_for_tree[nb_indices]
+        print(7)
 
 def antenna_coverage(r_antenna, r_grid, zasieg):
     """

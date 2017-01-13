@@ -8,6 +8,7 @@ class Population():
     def __init__(self, grid, n_pop=25, n_antennae=5, default_power=0.2, p_cross=0.5, p_mutation=1, std_mutation=0.1,
                  n_generations=50):
         self.grid = grid
+        # TODO: rename these
         self.NPOPULATION = n_pop
         self.NANTENNAE = n_antennae
         self.DEFAULT_POWER = default_power
@@ -15,6 +16,8 @@ class Population():
         self.P_CROSSOVER = p_cross
         self.P_MUTATION = p_mutation
         self.MUTATION_STD = std_mutation
+
+        self.number_expected_neighbors = int(default_power ** 2 * np.pi * (grid.NX * grid.NY / grid.xmax / grid.ymax))
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
                                      np.array([[[grid.xmax, grid.ymax]]]) / 2

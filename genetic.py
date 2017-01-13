@@ -21,15 +21,14 @@ X, Y = np.meshgrid(x, y)
 R = np.stack((X, Y), axis=0)
 
 NPOPULATION = 25
-NGENERATIONS = 50
-NANTENNAE = 20
+NGENERATIONS = 200
+NANTENNAE = 5
 # N pi r^2 = 1
-
 # r = (1/ N pi)**0.5
-DEFAULT_POWER = (np.pi * NANTENNAE)**-0.5
-P_CROSSOVER = 0.01
-P_MUTATION = 1e-2
-MUTATION_STD = 0.01
+DEFAULT_POWER = 0.2
+P_CROSSOVER = 0.5
+P_MUTATION = 1
+MUTATION_STD = 0.1
 
 # # population as weights, for now let's focus on the uniform population case
 DISTANCES = ((R - np.array([(XMAX-XMIN)/2, (YMAX-YMIN)/2], ndmin=3).T)**2).sum(axis=0)
@@ -43,6 +42,7 @@ WEIGHTS_NORM = np.sum(WEIGHTS)
 DEBUG_MESSAGES = False
 PLOT_AT_RUNTIME = False
 SAVE_AT_RUNTIME = False
+SHOW_FINAL_CONFIGURATION = True
 np.random.seed(0)
 
 #=======CALCULATIONS======
@@ -102,7 +102,7 @@ def selection(r_antennae_population, weights = WEIGHTS):
     #     new_r_antennae_population[i] = r_antennae_population[indeks]
     selected_targets = (random_x > dystrybuanta.reshape(NPOPULATION, 1)).sum(axis=0)
     # print(selected_targets, utility_function_values, sep='\n')
-    print(utility_function_values.max(), utility_function_values.mean(), utility_function_values.std())
+    # print(utility_function_values.max(), utility_function_values.mean(), utility_function_values.std())
 
     new_r_antennae_population[...] = r_antennae_population[selected_targets]
     r_antennae_population[...] = new_r_antennae_population[...]
@@ -155,27 +155,31 @@ def mutation(r_antennae_population, gaussian_std = MUTATION_STD, p_mutation=P_MU
     r_antennae_population[:, :, 0] %= XMAX        # does this need xmin somehow?
     r_antennae_population[:, :, 1] %= YMAX        # likewise?
 
+
 #======PLOTTING======
 def plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history, filename=False, show=True, save=True):
     if show or save:
-        plt.plot(mean_fitness_history, "o-", label="Average fitness")
-        plt.plot(max_fitness_history, "o-", label="Max fitness")
-        plt.fill_between(np.arange(std_fitness_history.size),
+        fig, ax = plt.subplots()
+        ax.plot(mean_fitness_history, "o-", label="Average fitness")
+        ax.plot(max_fitness_history, "o-", label="Max fitness")
+        ax.fill_between(np.arange(std_fitness_history.size),
                         mean_fitness_history+std_fitness_history,
                         mean_fitness_history-std_fitness_history,
                         alpha=0.5,
-                        facecolor='orange')
-        plt.xlabel("Generation #")
-        plt.ylabel("Fitness")
-        plt.ylim(0,1)
-        plt.legend()
-        plt.grid()
+                        facecolor='orange',
+                        label = "1 std")
+        ax.set_xlabel("Generation #")
+        ax.set_ylabel("Fitness")
+        ax.set_ylim(0,1)
+        ax.legend()
+        ax.grid()
         if filename and save:
-            plt.savefig(filename)
+            fig.savefig(filename)
         if show:
-            plt.show()
+            return fig
         else:
-            pass
+            plt.close(fig)
+
 
 def plot_population(r_antennae_population, generation_number, filename=None, show=True, save=True):
     """
@@ -214,9 +218,9 @@ def plot_population(r_antennae_population, generation_number, filename=None, sho
         if save and filename:
             fig.savefig(filename)
         if show:
-            plt.show()
-        else:
             return fig
+        else:
+            plt.close(fig)
 
 def plot_single(r_antennae, generation_number, filename=None, show=True, save=True):
     """
@@ -248,9 +252,9 @@ def plot_single(r_antennae, generation_number, filename=None, show=True, save=Tr
         if filename and save:
             fig.savefig(filename)
         if show:
-            plt.show()
-        else:
             return fig
+        else:
+            plt.close(fig)
 
 #=====MAIN===========
 def main_loop(NGENERATIONS):
@@ -265,8 +269,9 @@ def main_loop(NGENERATIONS):
     na razie zróbmy wolno i na forach :)
     """
 
-    r_antennae_population = np.random.random((NPOPULATION, NANTENNAE, 2))
+    # r_antennae_population = np.random.random((NPOPULATION, NANTENNAE, 2))
 
+    r_antennae_population = np.ones((NPOPULATION, NANTENNAE, 2))/2
     print("Generation {}/{}, {:.0f}% done".format(0, NGENERATIONS, 0),end='')
 
     max_fitness_history = np.zeros(NGENERATIONS)
@@ -306,7 +311,7 @@ def main_loop(NGENERATIONS):
     print("\rJob's finished!")
     plot_population(r_antennae_population, NGENERATIONS,
                     filename="{:02d}.png".format(NGENERATIONS),
-                    show=PLOT_AT_RUNTIME, save=True)
+                    show=SHOW_FINAL_CONFIGURATION, save=True)
     #znalezienie optymalnego
     values = antenna_coverage_population(r_antennae_population, r_grid=R)
     utility_function_values = utility_function(values, WEIGHTS)
@@ -316,13 +321,14 @@ def main_loop(NGENERATIONS):
 
     plot_single(r_best, NGENERATIONS,
                 filename="{:02d}_max.png".format(NGENERATIONS),
-                show=True, save=True)
+                show=SHOW_FINAL_CONFIGURATION, save=True)
 
     np.savetxt("meanfit.dat", mean_fitness_history)
     np.savetxt("maxfit.dat", max_fitness_history)
     print(mean_fitness_history)
     print(max_fitness_history)
-    plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history)
+    plot_fitness(mean_fitness_history, max_fitness_history, std_fitness_history, filename="fitness.png", save=True)
+    plt.show()
 if __name__=="__main__":
     main_loop(NGENERATIONS)
     # plot_fitness(np.loadtxt("meanfit.dat"), np.loadtxt("maxfit.dat"))

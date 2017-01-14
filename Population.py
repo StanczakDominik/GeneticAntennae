@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
-
+from matplotlib.patches import Circle
+from patches import circles
+from mpl_toolkits.basemap import Basemap
 class Population():
     """population of sets of antennae"""
 
-    def __init__(self, grid, n_pop=25, n_antennae=5, default_power=0.2, p_cross=0.5, p_mutation=1, std_mutation=0.1,
-                 n_generations=50):
+    def __init__(self, grid, n_pop=50, n_antennae=10, default_power=0.3, p_cross=0.5, p_mutation=1, std_mutation=0.3,
+                 n_generations=500):
         self.grid = grid
         # TODO: rename these
         self.NPOPULATION = n_pop
@@ -17,10 +18,10 @@ class Population():
         self.P_MUTATION = p_mutation
         self.MUTATION_STD = std_mutation
 
-        self.number_expected_neighbors = int(default_power ** 2 * np.pi * (grid.NX * grid.NY / grid.xmax / grid.ymax))
+        self.number_expected_neighbors = 1000
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
-                                     np.array([[[grid.xmax, grid.ymax]]]) / 2
+                                     np.array([[[(42+56)/2, (29+35)/2]]])
 
         self.TEMP_ARRAY = np.zeros_like(self.r_antennae_population)
 
@@ -31,6 +32,7 @@ class Population():
         self.crossovers_history = np.zeros(self.n_generations)
         self.position_history = np.zeros(((self.n_generations, self.NPOPULATION, self.NANTENNAE, 2)))
         self.iteration = 0
+        print("Generation {}/{}, {:.0f}% done".format(0, self.n_generations, 0),end='')
 
     def calculate_utility(self, plotting=False, i=-1):
         coverage_population_values = self.grid.antenna_coverage_population(self)
@@ -42,9 +44,7 @@ class Population():
     """ genetic operators """
 
     def selection(self):
-        coverage_population = self.grid.antenna_coverage_population(self)
-
-        utility_function_values = self.grid.utility_function(coverage_population)
+        utility_function_values = self.grid.utility_function(self)
         utility_function_total = utility_function_values.sum()
 
         utility_function_normalized = utility_function_values / utility_function_total
@@ -88,8 +88,8 @@ class Population():
         self.r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
 
         # TODO: swap PBC to punishing for underperforming
-        self.r_antennae_population[:, :, 0] %= self.grid.xmax
-        self.r_antennae_population[:, :, 1] %= self.grid.ymax
+        # self.r_antennae_population[:, :, 0] %= self.grid.xmax
+        # self.r_antennae_population[:, :, 1] %= self.grid.ymax
 
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
@@ -97,6 +97,7 @@ class Population():
         self.crossover_cutoff()
         self.mutation()
         self.iteration += 1
+        print("\rGeneration {}/{}, {:.0f}% done".format(self.iteration, self.n_generations, self.iteration/self.n_generations*100),end='')
 
     """ plotting routines"""
 
@@ -113,11 +114,11 @@ class Population():
                         label="1 std")
         ax.set_xlabel("Generation #")
         ax.set_ylabel("Fitness")
-        ax.set_ylim(0, 1)
+        # ax.set_ylim(0, 1)
         ax.legend()
         ax.grid()
         if savefilename:
-            fig.savefig("data/" + savefilename)
+            fig.savefig("data/" + savefilename + ".png")
         if show:
             return fig
         plt.close(fig)
@@ -130,37 +131,52 @@ class Population():
 
         if generation_number == -1:
             generation_number = self.n_generations - 1
-        utility_function_values, coverage_population_values = self.calculate_utility(plotting=True, i=generation_number)
+        # utility_function_values, coverage_population_values = self.calculate_utility(plotting=True, i=generation_number)
+        utility_function_values = self.grid.utility_function(self)
         best_candidate = np.argmax(utility_function_values)
 
         fig, axis = plt.subplots()
+        # map = Basemap(projection='cyl', llcrnrlon=12, urcrnrlon=25, llcrnrlat=48, urcrnrlat=56, resolution='i', ax=axis)
+        # map.drawcoastlines()
+        # map.fillcontinents()
+        # map.drawcountries()
+        # map.drawparallels(np.arange(48, 56, 1))
+
+        polish_indices = self.grid.countries == "PL"
+        axis.scatter(self.grid.E[polish_indices],
+            self.grid.N[polish_indices],
+            self.grid.populations[polish_indices]*1000,
+         color="red")
+
         for i, antenna_locations in enumerate(self.position_history[generation_number]):
             x_a, y_a = antenna_locations.T
             marker_size = 10
-            alpha = 0.6
+            alpha = 0.2
             if i == best_candidate:
                 marker_size *= 2
                 alpha = 1
-            axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
+                axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
+            circles(x_a, y_a, self.DEFAULT_POWER, alpha=alpha/4)
 
-        axis.contourf(self.grid.x, self.grid.y, self.grid.weights, 100, cmap='viridis', label="Coverage")
-        configurations = axis.contourf(self.grid.x, self.grid.y, coverage_population_values.sum(axis=0), 100,
-                                       cmap='viridis', alpha=0.5)
-        fig.colorbar(configurations)
+        # axis.contourf(self.grid.x, self.grid.y, self.grid.weights, 100, cmap='viridis', label="Coverage")
+        # configurations = axis.contourf(self.grid.x, self.grid.y, coverage_population_values.sum(axis=0), 100,
+        #                                cmap='viridis', alpha=0.5)
+        # fig.colorbar(configurations)
+
 
         axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
             generation_number,
-            utility_function_values.mean(),
-            utility_function_values.std(),
-            utility_function_values.max(),
+            self.mean_fitness_history[generation_number],
+            self.std_fitness_history[generation_number],
+            self.max_fitness_history[generation_number],
         ))
-        axis.set_xlabel("x")
-        axis.set_ylabel("y")
-        axis.set_xlim(0, 1)
-        axis.set_ylim(0, 1)
+        # axis.set_xlabel("x")
+        # axis.set_ylabel("y")
+        # axis.set_xlim(48, 54)
+        # axis.set_ylim(12, 25)
         # axis.legend(loc='best')
         if savefilename:
-            fig.savefig("data/" + savefilename)
+            fig.savefig("data/" + str(generation_number) + savefilename + ".png")
         if show:
             return fig
         plt.close(fig)

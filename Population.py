@@ -6,8 +6,13 @@ from mpl_toolkits.basemap import Basemap
 class Population():
     """population of sets of antennae"""
 
-    def __init__(self, grid, n_pop=50, n_antennae=10, default_power=0.3, p_cross=0.5, p_mutation=1, std_mutation=0.3,
-                 n_generations=500):
+    def __init__(self, grid,
+                n_pop=50,
+                n_antennae=10,
+                default_power=0.3,
+                p_cross=0.5, p_mutation=1,
+                std_mutation=0.3,
+                n_generations=50):
         self.grid = grid
         # TODO: rename these
         self.NPOPULATION = n_pop
@@ -18,7 +23,8 @@ class Population():
         self.P_MUTATION = p_mutation
         self.MUTATION_STD = std_mutation
 
-        self.number_expected_neighbors = 1000
+        self.number_expected_neighbors = int(((111*default_power)**2 * np.pi))
+
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
                                      np.array([[[(42+56)/2, (29+35)/2]]])
@@ -96,8 +102,8 @@ class Population():
         self.selection()
         self.crossover_cutoff()
         self.mutation()
+        print(f"\rGeneration {self.iteration}/{self.n_generations}, {self.iteration/self.n_generations*100:.0f}% done, , fitness is {self.mean_fitness_history[self.iteration]:.2f} +- {self.std_fitness_history[self.iteration]:.2f}",end='')
         self.iteration += 1
-        print("\rGeneration {}/{}, {:.0f}% done".format(self.iteration, self.n_generations, self.iteration/self.n_generations*100),end='')
 
     """ plotting routines"""
 

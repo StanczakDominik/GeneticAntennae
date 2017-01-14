@@ -11,13 +11,15 @@ class GeoGrid():
         self.E = df['E'].values
         self.populations = df['populations'].values
         self.countries = df['countries'].values
-        self.populations[np.logical_not(self.countries == "PL")] = self.populations[np.logical_not(self.countries == "PL")]/100
-        self.populations = self.populations / self.populations.sum()
+        self.populations[np.logical_not(self.countries == "PL")] = 0#-self.populations[np.logical_not(self.countries == "PL")]
+        self.populations = self.populations / np.abs(self.populations).sum()
+        # self.populations = self.populations / 38000
         self.points_for_tree = list(zip(self.E, self.N))
         self.tree = scipy.spatial.cKDTree(self.points_for_tree)
 
     def query(self, population, antenna_set):
-        return self.tree.query(antenna_set, population.number_expected_neighbors)
+        return self.tree.query(antenna_set,
+                               population.number_expected_neighbors)
 
     def utility_function(self, population, i = -1):
         if i == -1:
@@ -28,9 +30,12 @@ class GeoGrid():
         utility = np.zeros(population.NPOPULATION)
         for j, antenna_set in enumerate(dataset):
             distances, indices = self.query(population, antenna_set)
-            covered_antennae = np.unique(indices)
+            # print((distances < population.DEFAULT_POWER).sum())
+            # print(indices.size, distances.max(), distances.min(), distances.std(), distances.mean())
+            covered_antennae = np.unique(indices[distances < population.DEFAULT_POWER])
             total_population_reached = np.sum(self.populations[covered_antennae])
             utility[j] = total_population_reached
+        utility[utility<=0] = 0
         return utility
 
 

@@ -7,7 +7,15 @@ from GeoData import GeoGrid
 if __name__ == '__main__':
     np.random.seed(0)
     grid = GeoGrid()
-    pop = Population(grid, n_generations=500, p_cross=0.8, n_antennae=20, n_pop=100)
+    pop = Population(grid,
+                    n_pop=100,
+                    n_antennae=30,
+                    default_power = 0.3,
+                    p_cross=0.8,
+                    p_mutation = 1,
+                    std_mutation = 0.15,
+                    n_generations=200,
+                    )
     for n in range(pop.n_generations):
         pop.generation_cycle()
     pop.plot_fitness(savefilename="fitness", show=False)

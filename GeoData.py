@@ -44,14 +44,17 @@ class GeoGrid():
         utility = np.zeros((npopulation, nantennae))
         for j, antenna_set in enumerate(dataset):
             distances, indices = self.query(population, antenna_set)
-            cleaned_indices = indices[distances < population.DEFAULT_POWER]
-            covered_already = np.array([])
+            cleaned_indices = distances < population.DEFAULT_POWER
+            occurences = np.bincount(indices[cleaned_indices], minlength=self.N.size).astype(float)
+            occurences[occurences == 0] = np.inf
+
             for k, antenna_location in enumerate(antenna_set):
-                # covered_already = np.unique(cleaned_indices[:,0])
-                covered_here = np.unique(cleaned_indices[k])
-                new_covered = np.setdiff1d(covered_here, covered_already)
-                covered_already = np.concatenate((covered_already, new_covered))
-                utility[j, k] = np.sum(self.populations[new_covered])
+                covered_here = indices[k]
+                cleaned_indices_here = cleaned_indices[k]
+                populations_here = self.populations[covered_here]
+                occurences_here = occurences[covered_here]
+                reached_normed_population = np.sum(cleaned_indices_here * populations_here / occurences_here)
+                utility[j, k] = reached_normed_population
 
         utility[utility <= 0] = 0
         return utility

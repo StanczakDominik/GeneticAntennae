@@ -58,106 +58,54 @@ class Population():
             return utility_function_values
     """ genetic operators """
 
-    def selection(self):
-        utility_function_values = self.grid.utility_function(self)
-        utility_function_total = utility_function_values.sum()
-
-        utility_function_normalized = utility_function_values / utility_function_total
-        dystrybuanta = utility_function_normalized.cumsum()
-        random_x = np.random.random(self.NPOPULATION).reshape(1, self.NPOPULATION)
-
-        new_r_antennae_population = self.TEMP_ARRAY
-        # for i, x in enumerate(random_x.T):
-        #     indeks = (x > dystrybuanta).sum()
-        #     print(indeks)
-        #     new_r_antennae_population[i] = r_antennae_population[indeks]
-        selected_targets = (random_x > dystrybuanta.reshape(self.NPOPULATION, 1)).sum(axis=0)
-        # print(selected_targets, utility_function_values, sep='\n')
-        # print(utility_function_values.max(), utility_function_values.mean(), utility_function_values.std())
-
-        new_r_antennae_population[...] = self.r_antennae_population[selected_targets]
-        self.r_antennae_population[...] = new_r_antennae_population[...]
-        self.utility_values = utility_function_values[selected_targets]
-
-        self.max_fitness_history[self.iteration] = utility_function_values.max()
-        self.mean_fitness_history[self.iteration] = utility_function_values.mean()
-        self.std_fitness_history[self.iteration] = utility_function_values.std()
-
     def selection_mu_plus_lambda(self):
         random_indices = np.random.randint(0, self.NPOPULATION, size=self.TRIAL_POPULATION)
         random_children = self.r_antennae_population[random_indices]
+        random_stds = self.mutation_std_array[random_indices]
         random_utilities = self.utility_values[random_indices]
-        self.mutation_mulambda(random_children, random_utilities)
+        random_swapped_indices = self.mutation_mulambda(random_children, random_utilities, random_stds)
         total_pop = np.concatenate((self.r_antennae_population, random_children), axis=0)
+        total_stds = np.concatenate((self.mutation_std_array, random_stds), axis=0)
+        total_indices = np.concatenate((np.zeros(self.NPOPULATION), random_swapped_indices), axis=0)
+
         utility_function_values = self.grid.utility_function_general(self, dataset=total_pop)
         selected_targets = np.argsort(utility_function_values)[-self.NPOPULATION:]
 
-        self.TEMP_ARRAY[...] = total_pop[selected_targets]
-        self.r_antennae_population[...] = self.TEMP_ARRAY[...]
+        self.r_antennae_population[...] = total_pop[selected_targets]
+        self.mutation_std_array[...] = total_stds[selected_targets]
         self.utility_values = utility_function_values[selected_targets]
+        self.indices_to_swap_history[self.iteration] = total_indices[selected_targets]
 
         self.max_fitness_history[self.iteration] = utility_function_values.max()
         self.mean_fitness_history[self.iteration] = utility_function_values.mean()
         self.std_fitness_history[self.iteration] = utility_function_values.std()
 
-
-
-    def crossover_cutoff(self):
-        self.TEMP_ARRAY[...] = self.r_antennae_population[...]
-        number_crossovers_occurred = 0
-        for i in range(0, self.NPOPULATION, 2):
-            if i + 1 < self.NPOPULATION and np.random.random() < self.P_CROSSOVER:
-                number_crossovers_occurred += 1
-                cutoff = np.random.randint(0, self.NANTENNAE)
-                a = self.r_antennae_population[i + 1]
-                b = self.r_antennae_population[i]
-                self.TEMP_ARRAY[i, cutoff:] = a[cutoff:]
-                self.TEMP_ARRAY[i + 1, cutoff:] = b[cutoff:]
-        self.r_antennae_population[...] = self.TEMP_ARRAY[...]
-        self.crossovers_history[self.iteration] = number_crossovers_occurred
-
-    def mutation(self):
-        # TODO: implement 1/5 success rule or some other way
-        self.mutation_std_history[self.iteration] = self.mutation_std_array
-        which_to_move = (np.random.random((self.NPOPULATION, self.NANTENNAE)) < self.P_MUTATION)
-        how_much_to_move = np.random.normal(scale=self.mutation_std_array[:, np.newaxis, np.newaxis],
-                                            size=(self.NPOPULATION, self.NANTENNAE, 2))
-        self.TEMP_ARRAY = self.r_antennae_population + which_to_move[..., np.newaxis] * how_much_to_move
-        utility_function_values = self.grid.utility_function_general(self, self.TEMP_ARRAY)
-
-        # print(self.TEMP_ARRAY - self.r_antennae_population)
-        utility_change = utility_function_values - self.utility_values
-        indices_to_swap = utility_change > 0
-        self.indices_to_swap_history[self.iteration] = indices_to_swap
-        self.r_antennae_population[indices_to_swap] = self.TEMP_ARRAY[indices_to_swap]
-        # print(utility_function_values - self.utility_values)
-
-    def mutation_mulambda(self, dataset, utilities):
+    def mutation_mulambda(self, dataset, utilities, stds):
         # TODO: implement 1/5 success rule or some other way
         npopulation, nantennae, ndimensions = dataset.shape
         self.mutation_std_history[self.iteration] = self.mutation_std_array
         which_to_move = (np.random.random((npopulation, nantennae)) < self.P_MUTATION)
-        how_much_to_move = np.random.normal(scale=self.MUTATION_STD,
+        how_much_to_move = np.random.normal(scale=stds[:, np.newaxis, np.newaxis],
                                             size=(npopulation, nantennae, 2))
         TEMP = dataset + which_to_move[..., np.newaxis] * how_much_to_move
         utility_function_values = self.grid.utility_function_general(self, TEMP)
 
         utility_change = utility_function_values - utilities
         indices_to_swap = utility_change > 0
-        # self.indices_to_swap_history[self.iteration] = indices_to_swap
         dataset[indices_to_swap] = TEMP[indices_to_swap]
+        return indices_to_swap
         # print(utility_function_values - self.utility_values)
 
-    # def mutation_onefifth(self, run_every_n_mutations=5, c_decrease=0.82, c_increase=1.22):
-    #     if self.iteration >= run_every_n_mutations and self.iteration % run_every_n_mutations == 0:
-    #         running_sum = self.indices_to_swap_history[
-    #                       self.iteration - run_every_n_mutations:self.iteration + 1].cumsum(axis=0)
-    #         percentage_successful = (running_sum[-1] - running_sum[0]) / run_every_n_mutations
-    #         increase_these = percentage_successful > 0.2
-    #         self.mutation_std_array[increase_these] *= c_increase
-    #         self.mutation_std_array[np.logical_not(increase_these)] *= c_decrease
-    #         print(f"\nIncreased {increase_these.sum()}/{self.NPOPULATION} standard deviations.")
-    #     self.mutation_std_history[self.iteration] = self.mutation_std_array
+    def mutation_onefifth(self, run_every_n_mutations=5, c_decrease=0.82, c_increase=1.22):
+        if self.iteration >= run_every_n_mutations and self.iteration % run_every_n_mutations == 0:
+            running_sum = self.indices_to_swap_history[
+                          self.iteration - run_every_n_mutations:self.iteration + 1].cumsum(axis=0)
+            percentage_successful = (running_sum[-1] - running_sum[0]) / run_every_n_mutations
+            increase_these = percentage_successful > 0.2
+            self.mutation_std_array[increase_these] *= c_increase
+            self.mutation_std_array[np.logical_not(increase_these)] *= c_decrease
+            print(f"\nIncreased {increase_these.sum()}/{self.NPOPULATION} standard deviations.")
+        self.mutation_std_history[self.iteration] = self.mutation_std_array
 
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
@@ -165,7 +113,7 @@ class Population():
         # self.selection()
         # # self.crossover_cutoff()
         # self.mutation()
-        # # self.mutation_onefifth()
+        self.mutation_onefifth()
         print(f"\rGeneration {self.iteration}/{self.n_generations}, {self.iteration/self.n_generations*100:.0f}% done, , fitness is {self.mean_fitness_history[self.iteration]:.2f} +- {self.std_fitness_history[self.iteration]:.2f}",end='')
         self.iteration += 1
 

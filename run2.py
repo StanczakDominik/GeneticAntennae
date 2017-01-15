@@ -4,7 +4,7 @@ import numpy as np
 
 from GeoData import GeoGrid
 from Population import Population, load
-import time
+from time import time
 
 def run(E, N, country_code,
         n_pop,
@@ -74,18 +74,18 @@ if __name__ == '__main__':
     countries = [
         [31, 20, "ES"],
         [50, 33, "PL"],
+        [35, 34, "UK"],
         [37, 26, "FR"],
         [43, 30, "DE"],
         [44, 22, "IT"],
-        [35, 34, "UK"],
     ]
     for parameters in countries:
-        if os.path.isfile("data/" + parameters[2] + ".hdf5"):
+        if os.path.isfile("data2/" + parameters[2] + ".hdf5"):
             pop = load(parameters[2])
         else:
-            pop = run(*parameters, n_pop=16, n_trial=48, n_antennae=90, n_generations=50, )
+            pop = run(*parameters, n_pop=20, n_trial=140, n_antennae=100, n_generations=200)
 
     for parameters in countries:
-        if os.path.isfile("data/" + parameters[2] + ".hdf5"):
+        if os.path.isfile("data2/" + parameters[2] + ".hdf5"):
             pop = load(parameters[2])
-            animate(pop, "1_animation")
+            animate(pop, "2animation")

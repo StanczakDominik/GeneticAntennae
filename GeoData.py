@@ -8,6 +8,7 @@ class GeoGrid():
 
     def __init__(self, country_code):
         df = pd.read_csv('fixed_data.csv', index_col=0)
+        self.country_code = country_code
         self.N = df['N'].values
         self.E = df['E'].values
         self.populations = df['populations'].values
@@ -40,15 +41,3 @@ class GeoGrid():
 
         utility[utility <= 0] = 0
         return utility
-
-
-if __name__ == '__main__':
-    from Population import Population
-    import matplotlib.pyplot as plt
-    g = GeoGrid()
-    pop = Population(g)
-    polish_indices = g.countries == "PL"
-    plt.scatter(g.E[polish_indices], g.N[polish_indices], g.populations[polish_indices], color="blue")
-    x, y = pop.r_antennae_population.T
-    plt.scatter(x, y, color="red")
-    plt.show()

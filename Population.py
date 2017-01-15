@@ -1,3 +1,4 @@
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
@@ -52,6 +53,22 @@ class Population():
         self.position_history = np.zeros(((self.n_generations, self.NPOPULATION, self.NANTENNAE, 2)))
         self.iteration = 0
         print("Generation {}/{}, {:.0f}% done".format(0, self.n_generations, 0),end='')
+
+    def save(self, filename):
+        with h5py.File(f"data/{filename}.hdf5", "w") as f:
+            f.create_dataset("utility_values_history", data=self.utility_values_history)
+            f.create_dataset("mutation_std_history", data=self.mutation_std_history)
+            f.create_dataset("max_fitness_history", data=self.max_fitness_history)
+            f.create_dataset("mean_fitness_history", data=self.mean_fitness_history)
+            f.create_dataset("std_fitness_history", data=self.std_fitness_history)
+            f.create_dataset("position_history", data=self.position_history)
+            f.attrs["n_pop"] = self.NPOPULATION
+            f.attrs["n_trial"] = self.TRIAL_POPULATION
+            f.attrs["n_antennae"] = self.NANTENNAE
+            f.attrs["default_power"] = self.DEFAULT_POWER
+            f.attrs["n_generations"] = self.n_generations
+            f.attrs["country_code"] = self.grid.country_code
+
 
     """ genetic operators """
 
@@ -110,9 +127,6 @@ class Population():
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
         self.selection_mu_plus_lambda()
-        # self.selection()
-        # # self.crossover_cutoff()
-        # self.mutation()
         self.mutation_onefifth()
         print(
             f"\rGeneration {self.iteration}/{self.n_generations}, {self.iteration/self.n_generations*100:.0f}% done, fitness is {self.mean_fitness_history[self.iteration]:.2f} +- {self.std_fitness_history[self.iteration]:.2f}",
@@ -209,7 +223,7 @@ class Population():
         axis.set_ylabel("Latitude [deg]")
         axis.legend(loc='best')
         if savefilename:
-            fig.savefig("data/" + str(generation_number) + savefilename + ".png")
+            fig.savefig("data/" + savefilename + str(generation_number) + ".png")
         if show:
             return fig
         plt.close(fig)

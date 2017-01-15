@@ -4,7 +4,12 @@ from GeoData import GeoGrid
 from Population import Population
 
 
-def run(E=50, N=33, country_code='PL'):
+def run(E=50, N=33, country_code='PL',
+        n_pop=16,
+        n_trial=48,
+        n_antennae=90,
+        n_generations=50,
+        prefix=""):
     """
 
     float E
@@ -25,14 +30,14 @@ def run(E=50, N=33, country_code='PL'):
     grid = GeoGrid(country_code)
 
     pop = Population(grid,
-                     n_pop=16,
-                     n_trial=48,
-                     n_antennae=90,
+                     n_pop=n_pop,
+                     n_trial=n_trial,
+                     n_antennae=n_antennae,
+                     n_generations=n_generations,
                      default_power=0.3,
                      p_cross=0.8,
                      p_mutation=1,
                      std_mutation=1,
-                     n_generations=10,
                      initial_E=E,
                      initial_N=N,
                      )
@@ -42,24 +47,30 @@ def run(E=50, N=33, country_code='PL'):
     for n in range(pop.n_generations):
         pop.generation_cycle()
 
-    pop.plot_animation(f"{country_code}animation")
+    pop.save(prefix + country_code)
+    pop.plot_animation(f"{prefix}{country_code}animation")
     print("Plotted animation")
 
-    pop.plot_fitness(savefilename=country_code + "fitness", show=False)
+    pop.plot_fitness(savefilename=prefix + country_code + "fitness", show=False)
     print("Plotted fitness")
 
     for i in np.linspace(0, pop.n_generations, 5, endpoint=False, dtype=int):
         print(f"Plotted generation {i}")
-        pop.plot_population(i, savefilename=country_code + "snapshot", show=False)
+        pop.plot_population(i, savefilename=prefix + country_code + "snapshot", show=False)
 
-    pop.plot_population(savefilename=country_code + "snapshot_final", show=False)
+    pop.plot_population(savefilename=prefix + country_code + "snapshot_final", show=False)
     print("Plotted final snapshot")
     print(f"Finished plotting for {country_code}")
 
 
 if __name__ == '__main__':
-    countries = [[50, 33, "PL"],
-                 [54, -2, "UK"], [42, -3, "ES"], [47, 3, "FR"], [51, 10, "DE"], [43, 12, "IT"],
-                 ]
+    countries = [
+        [54, -2, "UK"],
+        [42, -3, "ES"],
+        [47, 3, "FR"],
+        [51, 10, "DE"],
+        [43, 12, "IT"],
+        [50, 33, "PL"],
+    ]
     for parameters in countries:
         run(*parameters)

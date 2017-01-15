@@ -29,12 +29,15 @@ class Population():
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
                                      np.array([[[(42+56)/2, (29+35)/2]]])
+        self.mutation_std_array = np.ones(self.NPOPULATION) * std_mutation
         # TODO: set initial position as parameter of population
         self.utility_values = np.zeros((self.NPOPULATION))
 
         self.TEMP_ARRAY = np.zeros_like(self.r_antennae_population)
 
         self.n_generations = n_generations
+        self.utility_values_history = np.zeros((self.n_generations, self.NPOPULATION))
+        self.mutation_std_history = np.zeros((self.n_generations, self.NPOPULATION))
         self.max_fitness_history = np.zeros(self.n_generations)
         self.mean_fitness_history = np.zeros(self.n_generations)
         self.std_fitness_history = np.zeros(self.n_generations)
@@ -93,8 +96,9 @@ class Population():
 
     def mutation(self):
         # TODO: implement 1/5 success rule or some other way
+        self.mutation_std_history[self.iteration] = self.mutation_std_array
         which_to_move = (np.random.random((self.NPOPULATION, self.NANTENNAE)) < self.P_MUTATION)
-        how_much_to_move = np.random.normal(scale=self.MUTATION_STD,
+        how_much_to_move = np.random.normal(scale=self.mutation_std_array[:, np.newaxis, np.newaxis],
                                             size=(self.NPOPULATION, self.NANTENNAE, 2))
         self.TEMP_ARRAY = self.r_antennae_population + which_to_move[..., np.newaxis] * how_much_to_move
         utility_function_values = self.grid.utility_function_general(self, self.TEMP_ARRAY)
@@ -109,7 +113,7 @@ class Population():
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
         self.selection()
-        self.crossover_cutoff()
+        # self.crossover_cutoff()
         self.mutation()
         print(f"\rGeneration {self.iteration}/{self.n_generations}, {self.iteration/self.n_generations*100:.0f}% done, , fitness is {self.mean_fitness_history[self.iteration]:.2f} +- {self.std_fitness_history[self.iteration]:.2f}",end='')
         self.iteration += 1

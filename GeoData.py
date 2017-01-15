@@ -1,6 +1,7 @@
 import numpy as np
-import scipy.spatial
 import pandas as pd
+import scipy.spatial
+
 
 class GeoGrid():
     """spatial grid with human population on it"""
@@ -38,13 +39,22 @@ class GeoGrid():
         utility[utility<=0] = 0
         return utility
 
+    def utility_function_general(self, population, dataset):
+        utility = np.zeros(population.NPOPULATION)
+        for j, antenna_set in enumerate(dataset):
+            distances, indices = self.query(population, antenna_set)
+            covered_antennae = np.unique(indices[distances < population.DEFAULT_POWER])
+            total_population_reached = np.sum(self.populations[covered_antennae])
+            utility[j] = total_population_reached
+        utility[utility <= 0] = 0
+        return utility
+
 
 if __name__ == '__main__':
     from Population import Population
     import matplotlib.pyplot as plt
     g = GeoGrid()
     pop = Population(g)
-    from mpl_toolkits.basemap import Basemap
     # map = Basemap(projection='cyl', llcrnrlon=12, urcrnrlon=25, llcrnrlat=48, urcrnrlat=56, resolution='l')
     # map.drawcoastlines()
     # map.fillcontinents()

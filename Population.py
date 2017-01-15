@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle
+
 from patches import circles
-from mpl_toolkits.basemap import Basemap
+
+
 class Population():
     """population of sets of antennae"""
 
@@ -28,6 +29,8 @@ class Population():
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
                                      np.array([[[(42+56)/2, (29+35)/2]]])
+        # TODO: set initial position as parameter of population
+        self.utility_values = np.zeros((self.NPOPULATION))
 
         self.TEMP_ARRAY = np.zeros_like(self.r_antennae_population)
 
@@ -68,6 +71,8 @@ class Population():
 
         new_r_antennae_population[...] = self.r_antennae_population[selected_targets]
         self.r_antennae_population[...] = new_r_antennae_population[...]
+        self.utility_values = utility_function_values[selected_targets]
+
         self.max_fitness_history[self.iteration] = utility_function_values.max()
         self.mean_fitness_history[self.iteration] = utility_function_values.mean()
         self.std_fitness_history[self.iteration] = utility_function_values.std()
@@ -91,11 +96,15 @@ class Population():
         which_to_move = (np.random.random((self.NPOPULATION, self.NANTENNAE)) < self.P_MUTATION)
         how_much_to_move = np.random.normal(scale=self.MUTATION_STD,
                                             size=(self.NPOPULATION, self.NANTENNAE, 2))
-        self.r_antennae_population += which_to_move[..., np.newaxis] * how_much_to_move
+        self.TEMP_ARRAY = self.r_antennae_population + which_to_move[..., np.newaxis] * how_much_to_move
+        utility_function_values = self.grid.utility_function_general(self, self.TEMP_ARRAY)
 
-        # TODO: swap PBC to punishing for underperforming
-        # self.r_antennae_population[:, :, 0] %= self.grid.xmax
-        # self.r_antennae_population[:, :, 1] %= self.grid.ymax
+        # print(self.TEMP_ARRAY - self.r_antennae_population)
+        utility_change = utility_function_values - self.utility_values
+        indices_to_swap = utility_change > 0
+
+        self.r_antennae_population[indices_to_swap] = self.TEMP_ARRAY[indices_to_swap]
+        # print(utility_function_values - self.utility_values)
 
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
@@ -137,16 +146,11 @@ class Population():
 
         if generation_number == -1:
             generation_number = self.n_generations - 1
-        # utility_function_values, coverage_population_values = self.calculate_utility(plotting=True, i=generation_number)
+
         utility_function_values = self.grid.utility_function(self)
         best_candidate = np.argmax(utility_function_values)
 
         fig, axis = plt.subplots()
-        # map = Basemap(projection='cyl', llcrnrlon=12, urcrnrlon=25, llcrnrlat=48, urcrnrlat=56, resolution='i', ax=axis)
-        # map.drawcoastlines()
-        # map.fillcontinents()
-        # map.drawcountries()
-        # map.drawparallels(np.arange(48, 56, 1))
 
         polish_indices = self.grid.countries == "PL"
         axis.scatter(self.grid.E[polish_indices],
@@ -164,25 +168,27 @@ class Population():
                 axis.plot(x_a, y_a, "*", label="#{}".format(i), ms=marker_size, alpha=alpha)
             circles(x_a, y_a, self.DEFAULT_POWER, alpha=alpha/4)
 
-        # axis.contourf(self.grid.x, self.grid.y, self.grid.weights, 100, cmap='viridis', label="Coverage")
-        # configurations = axis.contourf(self.grid.x, self.grid.y, coverage_population_values.sum(axis=0), 100,
-        #                                cmap='viridis', alpha=0.5)
-        # fig.colorbar(configurations)
-
-
         axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
             generation_number,
             self.mean_fitness_history[generation_number],
             self.std_fitness_history[generation_number],
             self.max_fitness_history[generation_number],
         ))
-        # axis.set_xlabel("x")
-        # axis.set_ylabel("y")
-        # axis.set_xlim(48, 54)
-        # axis.set_ylim(12, 25)
-        # axis.legend(loc='best')
+        axis.set_xlabel("Długość geograficzna, w stopniach")
+        axis.set_ylabel("Szerokość geograficzna, w stopniach")
+        axis.set_xlim(48, 54)
+        axis.set_ylim(12, 25)
+        axis.legend(loc='best')
         if savefilename:
             fig.savefig("data/" + str(generation_number) + savefilename + ".png")
         if show:
             return fig
         plt.close(fig)
+
+
+if __name__ == '__main__':
+    from GeoData import GeoGrid
+
+    g = GeoGrid()
+    pop = Population(g)
+    pop.generation_cycle()

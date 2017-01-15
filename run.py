@@ -8,7 +8,8 @@ if __name__ == '__main__':
     grid = GeoGrid()
 
     pop = Population(grid,
-                     n_pop=100,
+                     n_pop=10,
+                     n_trial=30,
                      n_antennae=20,
                      default_power=0.3,
                      p_cross=0.8,
@@ -25,4 +26,4 @@ if __name__ == '__main__':
         print(f"Plotted generation {i}")
         pop.plot_population(i, savefilename="snapshot", show=False)
     pop.plot_population(savefilename="snapshot_final", show=False)
-    print(pop.mean_fitness_history)
+    # print(pop.mean_fitness_history)

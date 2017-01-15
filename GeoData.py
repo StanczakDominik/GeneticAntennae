@@ -33,18 +33,19 @@ class GeoGrid():
             distances, indices = self.query(population, antenna_set)
             # print((distances < population.DEFAULT_POWER).sum())
             # print(indices.size, distances.max(), distances.min(), distances.std(), distances.mean())
-            covered_antennae = np.unique(indices[distances < population.DEFAULT_POWER])
-            total_population_reached = np.sum(self.populations[covered_antennae])
+            covered_locations = np.unique(indices[distances < population.DEFAULT_POWER])
+            total_population_reached = np.sum(self.populations[covered_locations])
             utility[j] = total_population_reached
         utility[utility<=0] = 0
         return utility
 
     def utility_function_general(self, population, dataset):
-        utility = np.zeros(population.NPOPULATION)
+        npopulation, nantennae, dim2 = dataset.shape
+        utility = np.zeros(npopulation)
         for j, antenna_set in enumerate(dataset):
             distances, indices = self.query(population, antenna_set)
-            covered_antennae = np.unique(indices[distances < population.DEFAULT_POWER])
-            total_population_reached = np.sum(self.populations[covered_antennae])
+            covered_locations = np.unique(indices[distances < population.DEFAULT_POWER])
+            total_population_reached = np.sum(self.populations[covered_locations])
             utility[j] = total_population_reached
         utility[utility <= 0] = 0
         return utility

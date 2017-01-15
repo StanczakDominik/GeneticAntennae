@@ -81,6 +81,9 @@ class Population():
         self.mean_fitness_history[self.iteration] = utility_function_values.mean()
         self.std_fitness_history[self.iteration] = utility_function_values.std()
 
+    def selection_mu_plus_lambda(self):
+        pass
+
     def crossover_cutoff(self):
         self.TEMP_ARRAY[...] = self.r_antennae_population[...]
         number_crossovers_occurred = 0
@@ -112,14 +115,15 @@ class Population():
         # print(utility_function_values - self.utility_values)
 
     def mutation_onefifth(self, run_every_n_mutations=5, c_decrease=0.82, c_increase=1.22):
-        if self.iteration > run_every_n_mutations and self.iteration % run_every_n_mutations == 0:
+        if self.iteration >= run_every_n_mutations and self.iteration % run_every_n_mutations == 0:
             running_sum = self.indices_to_swap_history[
                           self.iteration - run_every_n_mutations:self.iteration + 1].cumsum(axis=0)
             percentage_successful = (running_sum[-1] - running_sum[0]) / run_every_n_mutations
             increase_these = percentage_successful > 0.2
             self.mutation_std_array[increase_these] *= c_increase
             self.mutation_std_array[np.logical_not(increase_these)] *= c_decrease
-            print(f"Increased {increase_these.sum()}/{self.NPOPULATION} standard deviations.")
+            print(f"\nIncreased {increase_these.sum()}/{self.NPOPULATION} standard deviations.")
+        self.mutation_std_history[self.iteration] = self.mutation_std_array
 
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
@@ -146,7 +150,23 @@ class Population():
         ax.set_xlabel("Generation #")
         ax.set_ylabel("Fitness")
         # ax.set_ylim(0, 1)
-        ax.legend()
+        ax.legend(loc='best')
+        ax.grid()
+        if savefilename:
+            fig.savefig("data/" + savefilename + ".png")
+        if show:
+            return fig
+        plt.close(fig)
+
+    def plot_std(self, savefilename=False, show=True,
+                 save=True):
+        fig, ax = plt.subplots()
+        for std in self.mutation_std_history.T:
+            ax.plot(range(self.n_generations), std, "o-", label="Mutation STD")
+        ax.set_xlabel("Generation #")
+        ax.set_ylabel("STD")
+        # ax.set_ylim(0, 1)
+        # ax.legend(loc='best')
         ax.grid()
         if savefilename:
             fig.savefig("data/" + savefilename + ".png")

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 
+from GeoData import GeoGrid
 from patches import circles
 
 
@@ -10,30 +11,25 @@ class Population():
     """population of sets of antennae"""
 
     def __init__(self, grid,
-                 n_pop=50,
-                 n_trial=130,
-                 n_antennae=10,
-                 default_power=0.3,
-                 p_cross=0.5, p_mutation=1,
-                 std_mutation=0.3,
-                 n_generations=50,
-                 initial_E=50,
-                 initial_N=33,
+                 n_pop,
+                 n_trial,
+                 n_antennae,
+                 default_power,
+                 std_mutation,
+                 n_generations,
+                 initial_E,
+                 initial_N,
                  ):
         self.grid = grid
-        # TODO: rename these
         self.NPOPULATION = n_pop
         self.TRIAL_POPULATION = n_trial
         self.NANTENNAE = n_antennae
         self.DEFAULT_POWER = default_power
-
-        self.P_CROSSOVER = p_cross
-        self.P_MUTATION = p_mutation
         self.MUTATION_STD = std_mutation
-
         self.number_expected_neighbors = int(((111*default_power)**2 * np.pi))
 
-
+        self.initial_E = initial_E
+        self.initial_N = initial_N
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
                                      np.array([[[(initial_E), (initial_N)]]])
         self.mutation_std_array = np.ones((self.NPOPULATION, self.NANTENNAE)) * std_mutation
@@ -52,7 +48,6 @@ class Population():
         self.indices_to_swap_history = np.zeros((self.n_generations, self.NPOPULATION, self.NANTENNAE))
         self.position_history = np.zeros(((self.n_generations, self.NPOPULATION, self.NANTENNAE, 2)))
         self.iteration = 0
-        print("Generation {}/{}, {:.0f}% done".format(0, self.n_generations, 0),end='')
 
     def save(self, filename):
         with h5py.File(f"data/{filename}.hdf5", "w") as f:
@@ -68,6 +63,9 @@ class Population():
             f.attrs["default_power"] = self.DEFAULT_POWER
             f.attrs["n_generations"] = self.n_generations
             f.attrs["country_code"] = self.grid.country_code
+            f.attrs["std_mutation"] = self.MUTATION_STD
+            f.attrs["initial_E"] = self.initial_E
+            f.attrs["initial_N"] = self.initial_N
 
 
     """ genetic operators """
@@ -197,7 +195,7 @@ class Population():
 
         fig, axis = plt.subplots()
 
-        polish_indices = self.grid.countries == "PL"
+        polish_indices = self.grid.countries == self.grid.country_code
         axis.scatter(self.grid.E[polish_indices],
             self.grid.N[polish_indices],
             self.grid.populations[polish_indices]*1000,
@@ -219,9 +217,11 @@ class Population():
             self.std_fitness_history[generation_number],
             self.max_fitness_history[generation_number],
         ))
-        axis.set_xlabel("Longitude [deg]")
-        axis.set_ylabel("Latitude [deg]")
-        axis.legend(loc='best')
+        # axis.set_xlabel("Longitude [deg]")
+        # axis.set_ylabel("Latitude [deg]")
+        # axis.legend(loc='best')
+        axis.get_xaxis().set_ticks([])
+        axis.get_yaxis().set_ticks([])
         if savefilename:
             fig.savefig("data/" + savefilename + str(generation_number) + ".png")
         if show:
@@ -235,7 +235,7 @@ class Population():
 
         fig, axis = plt.subplots()
 
-        polish_indices = self.grid.countries == "PL"
+        polish_indices = self.grid.countries == self.grid.country_code
         axis.set_ylabel("Latitude [deg]")
         axis.set_xlabel("Longitude [deg]")
 
@@ -254,6 +254,8 @@ class Population():
         marker_size = 20
         alpha = 1
         stars, = axis.plot([], [], "*", ms=marker_size, alpha=alpha)
+        axis.get_xaxis().set_ticks([])
+        axis.get_yaxis().set_ticks([])
 
         def animate(generation_number):
             print(f"Plotting frame {generation_number}")
@@ -275,3 +277,25 @@ class Population():
 
         anim = animation.FuncAnimation(fig, animate, frames=range(self.n_generations), interval=500)
         anim.save(f"data/{savefilename}.mp4")
+
+
+def load(filename):
+    with h5py.File(f"data/{filename}.hdf5", "r") as f:
+        grid = GeoGrid(country_code=f.attrs['country_code'])
+        pop = Population(grid,
+                         n_pop=f.attrs['n_pop'],
+                         n_trial=f.attrs['n_trial'],
+                         n_antennae=f.attrs['n_antennae'],
+                         n_generations=f.attrs['n_generations'],
+                         default_power=f.attrs['default_power'],
+                         initial_E=f.attrs['initial_E'],
+                         initial_N=f.attrs['initial_N'],
+                         std_mutation=f.attrs['std_mutation'],
+                         )
+        pop.utility_values_history = f["utility_values_history"][...]
+        pop.mutation_std_history = f["mutation_std_history"][...]
+        pop.max_fitness_history = f["max_fitness_history"][...]
+        pop.mean_fitness_history = f["mean_fitness_history"][...]
+        pop.std_fitness_history = f["std_fitness_history"][...]
+        pop.position_history = f["position_history"][...]
+    return pop

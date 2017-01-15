@@ -1,14 +1,16 @@
+import os
+
 import numpy as np
 
 from GeoData import GeoGrid
 from Population import Population
 
 
-def run(E=50, N=33, country_code='PL',
-        n_pop=16,
-        n_trial=48,
-        n_antennae=90,
-        n_generations=50,
+def run(E, N, country_code,
+        n_pop,
+        n_trial,
+        n_antennae,
+        n_generations,
         prefix=""):
     """
 
@@ -35,8 +37,6 @@ def run(E=50, N=33, country_code='PL',
                      n_antennae=n_antennae,
                      n_generations=n_generations,
                      default_power=0.3,
-                     p_cross=0.8,
-                     p_mutation=1,
                      std_mutation=1,
                      initial_E=E,
                      initial_N=N,
@@ -46,31 +46,42 @@ def run(E=50, N=33, country_code='PL',
         f"Running {pop.NPOPULATION} populations of {pop.NANTENNAE} antennae each for {pop.n_generations} generations for {country_code }")
     for n in range(pop.n_generations):
         pop.generation_cycle()
-
     pop.save(prefix + country_code)
-    pop.plot_animation(f"{prefix}{country_code}animation")
+    return pop
+
+
+def animate(pop, savename):
+    pop.plot_animation(f"{savename}animation")
     print("Plotted animation")
 
-    pop.plot_fitness(savefilename=prefix + country_code + "fitness", show=False)
+    pop.plot_fitness(savefilename=savename + "fitness", show=False)
     print("Plotted fitness")
 
     for i in np.linspace(0, pop.n_generations, 5, endpoint=False, dtype=int):
         print(f"Plotted generation {i}")
-        pop.plot_population(i, savefilename=prefix + country_code + "snapshot", show=False)
+        pop.plot_population(i, savefilename=savename + "snapshot", show=False)
 
-    pop.plot_population(savefilename=prefix + country_code + "snapshot_final", show=False)
+    pop.plot_population(savefilename=savename + "snapshot_final", show=False)
     print("Plotted final snapshot")
-    print(f"Finished plotting for {country_code}")
+    print(f"Finished plotting for {savename}")
 
 
 if __name__ == '__main__':
     countries = [
-        [-2, 54, "UK"],
-        [-3, 42, "ES"],
-        [3, 47, "FR"],
-        [10, 51, "DE"],
-        [12, 43, "IT"],
+        [31, 20, "ES"],
+        [35, 34, "UK"],
+        [37, 26, "FR"],
+        [43, 30, "DE"],
+        [44, 22, "IT"],
         [50, 33, "PL"],
     ]
     for parameters in countries:
-        run(*parameters)
+        if os.path.isfile("data/" + parameters[2] + ".hdf5"):
+            pop = Population.load(parameters[2])
+        else:
+            pop = run(*parameters, n_pop=16, n_trial=48, n_antennae=90, n_generations=50, )
+
+    for parameters in countries:
+        if os.path.isfile("data/" + parameters[2] + ".hdf5"):
+            pop = Population.load(parameters[2])
+            animate(pop, parameters[2])

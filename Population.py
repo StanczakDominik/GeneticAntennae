@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import animation
 
 from patches import circles
 
@@ -14,7 +15,10 @@ class Population():
                  default_power=0.3,
                  p_cross=0.5, p_mutation=1,
                  std_mutation=0.3,
-                 n_generations=50):
+                 n_generations=50,
+                 initial_E=50,
+                 initial_N=33,
+                 ):
         self.grid = grid
         # TODO: rename these
         self.NPOPULATION = n_pop
@@ -30,7 +34,7 @@ class Population():
 
 
         self.r_antennae_population = np.ones((self.NPOPULATION, self.NANTENNAE, 2)) * \
-                                     np.array([[[(50), (33)]]])
+                                     np.array([[[(initial_E), (initial_N)]]])
         self.mutation_std_array = np.ones((self.NPOPULATION, self.NANTENNAE)) * std_mutation
         # TODO: set initial position as parameter of population
         self.utility_values = self.grid.utility_function_general(self, dataset=self.r_antennae_population)
@@ -172,7 +176,9 @@ class Population():
         if generation_number == -1:
             generation_number = self.n_generations - 1
 
-        utility_function_values = self.grid.utility_function(self)
+        utility_function_values = self.grid.utility_function_general(self,
+                                                                     self.position_history[generation_number]).sum(
+            axis=1)
         best_candidate = np.argmax(utility_function_values)
 
         fig, axis = plt.subplots()
@@ -208,10 +214,50 @@ class Population():
             return fig
         plt.close(fig)
 
+    def plot_animation(self, savefilename="animation"):
+        """
+        plot grid values (coverage (weighted optionally) and antenna locations)
+        """
 
-if __name__ == '__main__':
-    from GeoData import GeoGrid
+        fig, axis = plt.subplots()
 
-    g = GeoGrid()
-    pop = Population(g)
-    pop.generation_cycle()
+        polish_indices = self.grid.countries == "PL"
+        axis.set_ylabel("Latitude [deg]")
+        axis.set_xlabel("Longitude [deg]")
+
+        axis.scatter(self.grid.E[polish_indices],
+                     self.grid.N[polish_indices],
+                     self.grid.populations[polish_indices] * 1000,
+                     color="red")
+
+        title = axis.set_title(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
+            0,
+            self.mean_fitness_history[0],
+            self.std_fitness_history[0],
+            self.max_fitness_history[0],
+        ))
+
+        marker_size = 20
+        alpha = 1
+        stars, = axis.plot([], [], "*", ms=marker_size, alpha=alpha)
+
+        def animate(generation_number):
+            print(f"Plotting frame {generation_number}")
+
+            utility_function_values = self.grid.utility_function_general(self,
+                                                                         self.position_history[generation_number]).sum(
+                axis=1)
+            i = np.argmax(utility_function_values)
+
+            x_a, y_a = self.position_history[generation_number, i].T
+            stars.set_data(x_a, y_a)
+            title.set_text(r"Generation {}, $<f>$ {:.2f} $\pm$ {:.2f}, max {:.2f}".format(
+                generation_number,
+                self.mean_fitness_history[generation_number],
+                self.std_fitness_history[generation_number],
+                self.max_fitness_history[generation_number],
+            ))
+            return [stars, title]
+
+        anim = animation.FuncAnimation(fig, animate, frames=range(self.n_generations), interval=500)
+        anim.save(f"data/{savefilename}.mp4")

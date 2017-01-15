@@ -174,10 +174,8 @@ class Population():
             self.std_fitness_history[generation_number],
             self.max_fitness_history[generation_number],
         ))
-        axis.set_xlabel("Długość geograficzna, w stopniach")
-        axis.set_ylabel("Szerokość geograficzna, w stopniach")
-        axis.set_xlim(48, 54)
-        axis.set_ylim(12, 25)
+        axis.set_xlabel("Longitude [deg]")
+        axis.set_ylabel("Latitude [deg]")
         axis.legend(loc='best')
         if savefilename:
             fig.savefig("data/" + str(generation_number) + savefilename + ".png")

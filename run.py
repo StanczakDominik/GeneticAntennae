@@ -65,11 +65,11 @@ def run(E=50, N=33, country_code='PL',
 
 if __name__ == '__main__':
     countries = [
-        [54, -2, "UK"],
-        [42, -3, "ES"],
-        [47, 3, "FR"],
-        [51, 10, "DE"],
-        [43, 12, "IT"],
+        [-2, 54, "UK"],
+        [-3, 42, "ES"],
+        [3, 47, "FR"],
+        [10, 51, "DE"],
+        [12, 43, "IT"],
         [50, 33, "PL"],
     ]
     for parameters in countries:

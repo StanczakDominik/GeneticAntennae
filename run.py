@@ -13,7 +13,7 @@ if __name__ == '__main__':
                      p_cross=0.8,
                      p_mutation=1,
                      std_mutation=0.15,
-                     n_generations=10,
+                     n_generations=100,
                      )
     for n in range(pop.n_generations):
         pop.generation_cycle()

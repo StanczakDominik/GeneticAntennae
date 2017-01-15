@@ -42,6 +42,7 @@ class Population():
         self.mean_fitness_history = np.zeros(self.n_generations)
         self.std_fitness_history = np.zeros(self.n_generations)
         self.crossovers_history = np.zeros(self.n_generations)
+        self.indices_to_swap_history = np.zeros((self.n_generations, self.NPOPULATION))
         self.position_history = np.zeros(((self.n_generations, self.NPOPULATION, self.NANTENNAE, 2)))
         self.iteration = 0
         print("Generation {}/{}, {:.0f}% done".format(0, self.n_generations, 0),end='')
@@ -106,15 +107,26 @@ class Population():
         # print(self.TEMP_ARRAY - self.r_antennae_population)
         utility_change = utility_function_values - self.utility_values
         indices_to_swap = utility_change > 0
-
+        self.indices_to_swap_history[self.iteration] = indices_to_swap
         self.r_antennae_population[indices_to_swap] = self.TEMP_ARRAY[indices_to_swap]
         # print(utility_function_values - self.utility_values)
+
+    def mutation_onefifth(self, run_every_n_mutations=5, c_decrease=0.82, c_increase=1.22):
+        if self.iteration > run_every_n_mutations and self.iteration % run_every_n_mutations == 0:
+            running_sum = self.indices_to_swap_history[
+                          self.iteration - run_every_n_mutations:self.iteration + 1].cumsum(axis=0)
+            percentage_successful = (running_sum[-1] - running_sum[0]) / run_every_n_mutations
+            increase_these = percentage_successful > 0.2
+            self.mutation_std_array[increase_these] *= c_increase
+            self.mutation_std_array[np.logical_not(increase_these)] *= c_decrease
+            print(f"Increased {increase_these.sum()}/{self.NPOPULATION} standard deviations.")
 
     def generation_cycle(self):
         self.position_history[self.iteration] = self.r_antennae_population
         self.selection()
         # self.crossover_cutoff()
         self.mutation()
+        self.mutation_onefifth()
         print(f"\rGeneration {self.iteration}/{self.n_generations}, {self.iteration/self.n_generations*100:.0f}% done, , fitness is {self.mean_fitness_history[self.iteration]:.2f} +- {self.std_fitness_history[self.iteration]:.2f}",end='')
         self.iteration += 1
 

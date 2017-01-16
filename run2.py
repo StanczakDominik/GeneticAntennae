@@ -4,7 +4,7 @@ import numpy as np
 
 from GeoData import GeoGrid
 from Population import Population, load
-from time import time
+import time
 
 def run(E, N, country_code,
         n_pop,

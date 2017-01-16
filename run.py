@@ -88,4 +88,4 @@ if __name__ == '__main__':
     for parameters in countries:
         if os.path.isfile("data/" + parameters[2] + ".hdf5"):
             pop = load(parameters[2])
-            animate(pop, "1_animation")
+            animate(pop, parameters[2])
